@@ -55,8 +55,9 @@ const DEFAULT_USERS = [
  */
 export async function ensureDefaultUsers() {
   // Guard: run only once per server lifetime
+  // Note: guard is set AFTER successful completion, not before,
+  // so a partially-failed seed can retry on reconnection.
   if (global.__autoSeeded) return;
-  global.__autoSeeded = true;
 
   try {
     let created = 0;
@@ -129,7 +130,11 @@ export async function ensureDefaultUsers() {
     if (created > 0) {
       console.log(`[AUTO-SEED] ${created} default user(s) created successfully`);
     }
+
+    // Mark as seeded ONLY after successful completion
+    global.__autoSeeded = true;
   } catch (err) {
     console.error('[AUTO-SEED] Unexpected error:', err.message);
+    // Do NOT set guard — allow retry on next connection attempt
   }
 }

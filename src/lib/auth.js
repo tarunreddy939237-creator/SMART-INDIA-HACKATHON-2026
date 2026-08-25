@@ -86,9 +86,10 @@ export const authOptions = {
 
         let user = await getUserByEmail(email);
 
-        // ── Safe diagnostic logging (never log passwords or hashes) ─────
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AUTH] login attempt email=${email} userFound=${!!user} hasPassword=${!!user?.passwordHash} status=${user?.accountStatus || 'n/a'}`);
+        // ── Safe diagnostic logging (never log passwords, hashes, or secrets) ─
+        // In production, log only the reason for failure — never user content.
+        if (!user) {
+          console.log(`[AUTH] user_not_found email_domain=${email.split('@')[1] || 'unknown'}`);
         }
 
         // Fallback for immediate demo testing — disabled in production
@@ -118,25 +119,23 @@ export const authOptions = {
 
         if (user.passwordHash) {
           const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-          // ── Safe diagnostic logging ───────────────────────────────────────
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`[AUTH] password check email=${email} valid=${isValid}`);
-          }
           if (!isValid) {
+            console.log(`[AUTH] password_mismatch email_domain=${email.split('@')[1] || 'unknown'}`);
             // Demo fallback: only in development, never in production
             if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
               throw new Error('Invalid email or password.');
             }
           }
-        } else if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log(`[AUTH] no passwordHash for email=${email}`);
+        } else {
+          console.log(`[AUTH] no_password_hash email_domain=${email.split('@')[1] || 'unknown'}`);
+          if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
+            throw new Error('Invalid email or password.');
           }
-          throw new Error('Invalid email or password.');
         }
 
         // Enforce account status for non-demo users
         if (user.accountStatus && user.accountStatus !== 'active' && !user._id?.toString().startsWith('demo')) {
+          console.log(`[AUTH] account_blocked status=${user.accountStatus} email_domain=${email.split('@')[1] || 'unknown'}`);
           const statusMessages = {
             pending: 'Your account is pending College Admin approval. Please wait for verification.',
             rejected: 'Your registration was rejected. Please contact your College Admin.',
@@ -146,6 +145,7 @@ export const authOptions = {
           throw new Error(statusMessages[user.accountStatus] || 'Your account is not active.');
         }
 
+        console.log(`[AUTH] login_success role=${user.role} email_domain=${email.split('@')[1] || 'unknown'}`);
         return {
           id: user._id.toString ? user._id.toString() : user._id,
           name: user.name,
