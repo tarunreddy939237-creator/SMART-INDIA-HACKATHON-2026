@@ -86,6 +86,11 @@ export const authOptions = {
 
         let user = await getUserByEmail(email);
 
+        // ── Safe diagnostic logging (never log passwords or hashes) ─────
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[AUTH] login attempt email=${email} userFound=${!!user} hasPassword=${!!user?.passwordHash} status=${user?.accountStatus || 'n/a'}`);
+        }
+
         // Fallback for immediate demo testing — disabled in production
         if (!user && process.env.NODE_ENV !== 'production') {
           const demoMatch = DEMO_USERS.find((u) => u.email.toLowerCase() === email);
@@ -113,6 +118,10 @@ export const authOptions = {
 
         if (user.passwordHash) {
           const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+          // ── Safe diagnostic logging ───────────────────────────────────────
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[AUTH] password check email=${email} valid=${isValid}`);
+          }
           if (!isValid) {
             // Demo fallback: only in development, never in production
             if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
@@ -120,6 +129,9 @@ export const authOptions = {
             }
           }
         } else if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`[AUTH] no passwordHash for email=${email}`);
+          }
           throw new Error('Invalid email or password.');
         }
 

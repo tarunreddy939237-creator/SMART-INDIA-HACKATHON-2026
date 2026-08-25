@@ -62,19 +62,41 @@ export async function ensureDefaultUsers() {
     let created = 0;
 
     for (const def of DEFAULT_USERS) {
-      // Check if user already exists (any status)
+      const rawPassword = process.env[def.envPasswordKey] || def.fallbackPassword;
+      const passwordHash = await bcrypt.hash(rawPassword, BCRYPT_ROUNDS);
+
+      // Check if user already exists
       const existing = await User.findOne({ email: def.email }).lean();
+
       if (existing) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AUTO-SEED] ${def.email} already exists (status=${existing.accountStatus}) — skipping`);
+        // User exists — ensure it has a valid password hash AND is active.
+        // This handles the case where someone registered with this email via OTP
+        // (accountStatus: 'pending', passwordHash != expected demo password).
+        const needsUpdate = (
+          existing.accountStatus !== 'active' ||
+          !existing.passwordHash
+        );
+        if (needsUpdate) {
+          await User.updateOne(
+            { email: def.email },
+            {
+              $set: {
+                passwordHash,
+                accountStatus: 'active',
+                emailVerified: true,
+                role: def.role, // Ensure correct role
+              },
+            }
+          );
+          created++;
+          console.log(`[AUTO-SEED] Updated ${def.role}: ${def.email} (was status=${existing.accountStatus}, set active + password)`);
+        } else if (process.env.NODE_ENV !== 'production') {
+          console.log(`[AUTO-SEED] ${def.email} already exists and active — skipping`);
         }
         continue;
       }
 
-      // Determine password: env var or fallback
-      const rawPassword = process.env[def.envPasswordKey] || def.fallbackPassword;
-      const passwordHash = await bcrypt.hash(rawPassword, BCRYPT_ROUNDS);
-
+      // User does not exist — create it
       try {
         await User.create({
           name: def.name,
@@ -84,7 +106,7 @@ export async function ensureDefaultUsers() {
           rollNumber: def.rollNumber || '',
           yearOfStudy: def.yearOfStudy || 0,
           passwordHash,
-          accountStatus: 'active', // Default users are pre-approved
+          accountStatus: 'active',
           emailVerified: true,
           faceEmbedding: [],
         });
@@ -93,7 +115,11 @@ export async function ensureDefaultUsers() {
       } catch (err) {
         // Unique constraint violation = race condition — user was just created
         if (err.code === 11000) {
-          console.log(`[AUTO-SEED] ${def.email} created by concurrent request — skipping`);
+          console.log(`[AUTO-SEED] ${def.email} created by concurrent request — updating`);
+          await User.updateOne(
+            { email: def.email },
+            { $set: { passwordHash, accountStatus: 'active', role: def.role } }
+          ).catch(() => {});
         } else {
           console.error(`[AUTO-SEED] Failed to create ${def.email}:`, err.message);
         }
