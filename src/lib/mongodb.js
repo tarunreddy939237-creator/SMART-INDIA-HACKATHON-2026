@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { ensureDefaultUsers } from './autoSeed.js';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const MONGODB_DB  = process.env.MONGODB_DB || 'eduvision';
@@ -33,6 +34,10 @@ export async function connectToDatabase() {
       .then((m) => {
         console.log('[MongoDB] connected');
         cached.failedAt = null;
+        // Ensure default admin/faculty/student exist (idempotent, runs once)
+        ensureDefaultUsers().catch(err =>
+          console.error('[AUTO-SEED] background error:', err.message)
+        );
         return m;
       })
       .catch((err) => {
