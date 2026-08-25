@@ -59,6 +59,7 @@ export async function POST(request) {
       rollNumber, yearOfStudy, facultyId,
       collegeName, collegeId: providedCollegeId,
       department, branch, section,
+      studentMobile, parentMobile,
     } = body;
 
     // ── Validate required fields ─────────────────────────────────────────
@@ -89,6 +90,21 @@ export async function POST(request) {
       const year = parseInt(yearOfStudy) || 0;
       if (year < 1 || year > 4) {
         return NextResponse.json({ error: 'Please select your year of study (1st–4th Year).' }, { status: 400 });
+      }
+
+      // ── Mobile number validation ──────────────────────────────────────
+      const normalizedStudentMobile = (studentMobile || '').trim().replace(/\s+/g, '');
+      const normalizedParentMobile = (parentMobile || '').trim().replace(/\s+/g, '');
+      const indianMobileRegex = /^[6-9]\d{9}$/;
+
+      if (!normalizedStudentMobile || !indianMobileRegex.test(normalizedStudentMobile)) {
+        return NextResponse.json({ error: 'Please enter a valid 10-digit Indian student mobile number.' }, { status: 400 });
+      }
+      if (!normalizedParentMobile || !indianMobileRegex.test(normalizedParentMobile)) {
+        return NextResponse.json({ error: 'Please enter a valid 10-digit Indian parent mobile number.' }, { status: 400 });
+      }
+      if (normalizedStudentMobile === normalizedParentMobile) {
+        return NextResponse.json({ error: 'Student and Parent mobile numbers must be different.' }, { status: 400 });
       }
     }
 
@@ -170,6 +186,29 @@ export async function POST(request) {
         }
       }
 
+      // ── Mobile number uniqueness checks (students only) ────────────
+      let normStudentMobile = '';
+      let normParentMobile = '';
+      if (userRole === 'student' && studentMobile) {
+        normStudentMobile = studentMobile.trim().replace(/\s+/g, '');
+        normParentMobile = (parentMobile || '').trim().replace(/\s+/g, '');
+
+        const dupStudentMobile = await User.findOne({ studentMobile: normStudentMobile });
+        if (dupStudentMobile) {
+          return NextResponse.json(
+            { error: 'Student mobile number is already registered.' },
+            { status: 409 }
+          );
+        }
+        const dupParentMobile = await User.findOne({ parentMobile: normParentMobile });
+        if (dupParentMobile) {
+          return NextResponse.json(
+            { error: 'Parent mobile number is already registered.' },
+            { status: 409 }
+          );
+        }
+      }
+
       const passwordHash = await bcrypt.hash(password, 12);
       const rollNum = userRole === 'student' ? sanitizeString(rollNumber, 30) : '';
       const year = userRole === 'student' ? (parseInt(yearOfStudy) || 0) : 0;
@@ -194,6 +233,10 @@ export async function POST(request) {
         emailVerified: false,
         passwordHash,
         faceEmbedding: [],
+        studentMobile: normStudentMobile,
+        studentMobileVerified: false,
+        parentMobile: normParentMobile,
+        parentMobileVerified: false,
       });
 
       return NextResponse.json(

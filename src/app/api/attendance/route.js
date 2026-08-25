@@ -104,8 +104,8 @@ export async function GET(request) {
 
     const records      = await getAttendanceByStudent(userId);
     const presentCount = records.filter(r => r.status === 'present').length;
-    const total        = records.length || 24;
-    const percentage   = Math.round((presentCount / total) * 100);
+    const total        = records.length;
+    const percentage   = total > 0 ? Math.round((presentCount / total) * 100) : 0;
 
     // Generate attendance warning if below threshold (non-blocking)
     try {
@@ -119,9 +119,11 @@ export async function GET(request) {
 
     return NextResponse.json({
       records,
-      percentage:   percentage || 94,
-      presentCount: presentCount || 22,
-      absentCount:  total - presentCount || 2,
+      percentage,
+      presentCount,
+      absentCount: total - presentCount,
+      totalClasses: total,
+      hasAttendanceData: total > 0,
     });
   } catch (error) {
     return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });

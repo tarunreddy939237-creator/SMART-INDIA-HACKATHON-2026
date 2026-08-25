@@ -522,8 +522,8 @@ export async function getStudentProfile(studentId) {
   if (!user) return null;
   const attendance = await getAttendanceByStudent(studentId);
   const presentCount = attendance.filter((a) => a.status === 'present').length;
-  const totalClasses = attendance.length || 24;
-  const overallPercentage = totalClasses ? Math.round((presentCount / totalClasses) * 100) : 92;
+  const totalClasses = attendance.length;
+  const overallPercentage = totalClasses > 0 ? Math.round((presentCount / totalClasses) * 100) : 0;
   const quizAttempts = await getQuizAttemptsByStudent(studentId);
   const weakTopics = Array.from(new Set(quizAttempts.flatMap((q) => q.weakTopics || [])));
   const streak = await getStreak(studentId);

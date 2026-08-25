@@ -1107,8 +1107,11 @@ export default function StudentDashboardPage() {
               {subjects.length > 0 ? (
                 <div className="space-y-3">
                   {subjects.slice(0, 5).map((subject, i) => {
-                    // Generate realistic-looking progress for each subject
-                    const progress = Math.max(30, Math.min(95, 60 + (i * 7) + (avgQuizScore ? (avgQuizScore - 60) * 0.3 : 0)));
+                    // Use real quiz performance for this subject if available
+                    const subjectQuizzes = quizHistory.filter((h: any) => h.quizId?.subject === subject);
+                    const progress = subjectQuizzes.length > 0
+                      ? Math.round(subjectQuizzes.reduce((s: number, h: any) => s + (h.score || 0), 0) / subjectQuizzes.length)
+                      : 0;
                     const colors = ['#1CDEC8', '#5B52FF', '#FFAA00', '#10B981', '#8B5CF6'];
                     const color = colors[i % colors.length];
                     return (
@@ -1120,13 +1123,13 @@ export default function StudentDashboardPage() {
                         </div>
                         <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.04)' }}>
                           <div className="h-full rounded-full animate-progress-fill" style={{
-                            width: `${Math.round(progress)}%`,
+                            width: `${progress}%`,
                             background: `linear-gradient(90deg, ${color}CC, ${color})`,
                             animationDelay: `${i * 100}ms`,
                           }} />
                         </div>
                         <span className="font-mono text-[12px] font-bold shrink-0 w-10 text-right" style={{ color }}>
-                          {Math.round(progress)}%
+                          {progress > 0 ? `${progress}%` : '—'}
                         </span>
                       </div>
                     );
@@ -1148,10 +1151,13 @@ export default function StudentDashboardPage() {
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                   }}>
-                    {Math.round(subjects.reduce((sum, _, i) => {
-                      const p = Math.max(30, Math.min(95, 60 + (i * 7) + (avgQuizScore ? (avgQuizScore - 60) * 0.3 : 0)));
-                      return sum + p;
-                    }, 0) / subjects.length)}%
+                    {(() => {
+                      const scored = subjects.map(subject => {
+                        const sq = quizHistory.filter((h: any) => h.quizId?.subject === subject);
+                        return sq.length > 0 ? Math.round(sq.reduce((s: number, h: any) => s + (h.score || 0), 0) / sq.length) : 0;
+                      }).filter(s => s > 0);
+                      return scored.length > 0 ? `${Math.round(scored.reduce((a, b) => a + b, 0) / scored.length)}%` : '—';
+                    })()}
                   </span>
                 </div>
               )}

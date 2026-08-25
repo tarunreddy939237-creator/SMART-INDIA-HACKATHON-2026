@@ -44,6 +44,12 @@ const UserSchema = new mongoose.Schema({
   branch:        { type: String, default: '' },  // e.g. "CSE", "ECE"
   section:       { type: String, default: '' },  // e.g. "A", "B"
 
+  // ── Mobile verification fields ────────────────────────────────────────
+  studentMobile:          { type: String, default: '', trim: true },
+  studentMobileVerified:  { type: Boolean, default: false },
+  parentMobile:           { type: String, default: '', trim: true },
+  parentMobileVerified:   { type: Boolean, default: false },
+
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 });
@@ -56,6 +62,8 @@ UserSchema.index({ collegeId: 1, accountStatus: 1 });
 UserSchema.index({ collegeId: 1, role: 1 });
 UserSchema.index({ collegeId: 1, rollNumber: 1 }, { sparse: true });
 UserSchema.index({ collegeId: 1, facultyId: 1 }, { sparse: true });
+UserSchema.index({ studentMobile: 1 }, { sparse: true, unique: true });
+UserSchema.index({ parentMobile: 1 }, { sparse: true, unique: true });
 
 // Auto-update updatedAt (Mongoose 7+ uses async, no next callback)
 UserSchema.pre('save', function () {
