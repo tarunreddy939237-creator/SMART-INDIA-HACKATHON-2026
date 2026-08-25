@@ -24,6 +24,15 @@ function normalizeEmail(email) {
   return email.trim().toLowerCase();
 }
 
+/**
+ * Safe diagnostic log — never log passwords, hashes, tokens, or secrets.
+ * Logs only the step identifier and email domain for tracing the auth flow.
+ */
+function authLog(step, email) {
+  const domain = email ? email.split('@')[1] || 'unknown' : 'unknown';
+  console.log(`[AUTH_TRACE] ${step} domain=${domain}`);
+}
+
 export const authOptions = {
   session: {
     strategy: 'jwt',
@@ -37,28 +46,37 @@ export const authOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        // ── STEP 1: Validate credentials exist ────────────────────────────
         if (!credentials?.email || !credentials?.password) {
+          authLog('STEP1_FAIL_no_credentials');
           throw new Error('Please enter both email and password.');
         }
 
         const email = normalizeEmail(credentials.email);
+        authLog('STEP2_email_normalized', email);
 
         // ── Input length validation ────────────────────────────────────────
         if (email.length > 254) {
+          authLog('STEP3_FAIL_email_too_long', email);
           throw new Error('Invalid email address.');
         }
 
         // OTP-verified login — password field carries the verified signal
         if (String(credentials.password).startsWith('OTP_VERIFIED_')) {
+          authLog('STEP4_otp_path', email);
           let user = await getUserByEmail(email);
           if (!user) {
             const demoMatch = DEMO_USERS.find(u => u.email.toLowerCase() === email);
             if (demoMatch) user = demoMatch;
           }
-          if (!user) throw new Error('Account not found.');
+          if (!user) {
+            authLog('STEP4_FAIL_no_user_otp', email);
+            throw new Error('Account not found.');
+          }
 
           // Enforce account status for non-demo users
           if (user.accountStatus && user.accountStatus !== 'active' && !user._id?.toString().startsWith('demo')) {
+            authLog(`STEP4_FAIL_status_${user.accountStatus}`, email);
             const statusMessages = {
               pending: 'Your account is pending College Admin approval. Please wait for verification.',
               rejected: 'Your registration was rejected. Please contact your College Admin.',
@@ -68,6 +86,7 @@ export const authOptions = {
             throw new Error(statusMessages[user.accountStatus] || 'Your account is not active.');
           }
 
+          authLog('STEP4_SUCCESS_otp', email);
           return {
             id: user._id?.toString ? user._id.toString() : user._id,
             name: user.name, email: user.email,
@@ -84,58 +103,72 @@ export const authOptions = {
           };
         }
 
+        // ── STEP 5: Look up user in database ──────────────────────────────
+        authLog('STEP5_looking_up_user', email);
         let user = await getUserByEmail(email);
 
-        // ── Safe diagnostic logging (never log passwords, hashes, or secrets) ─
-        // In production, log only the reason for failure — never user content.
         if (!user) {
-          console.log(`[AUTH] user_not_found email_domain=${email.split('@')[1] || 'unknown'}`);
-        }
+          // ── STEP 5A: User not found ───────────────────────────────────
+          authLog('STEP5A_FAIL_user_not_found', email);
 
-        // Fallback for immediate demo testing — disabled in production
-        if (!user && process.env.NODE_ENV !== 'production') {
-          const demoMatch = DEMO_USERS.find((u) => u.email.toLowerCase() === email);
-          if (demoMatch && credentials.password === 'password123') {
-            return {
-              id: demoMatch._id,
-              name: demoMatch.name,
-              email: demoMatch.email,
-              role: demoMatch.role,
-              classOrSubject: demoMatch.classOrSubject,
-              subjects: demoMatch.subjects || [],
-              rollNumber: demoMatch.rollNumber || '',
-              yearOfStudy: demoMatch.yearOfStudy || 0,
-              collegeId: '',
-              collegeName: '',
-              accountStatus: 'active',
-              department: '',
-              branch: '',
-              section: '',
-            };
-          }
-          // Generic message to prevent email enumeration
-          throw new Error('Invalid email or password.');
-        }
-
-        if (user.passwordHash) {
-          const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-          if (!isValid) {
-            console.log(`[AUTH] password_mismatch email_domain=${email.split('@')[1] || 'unknown'}`);
-            // Demo fallback: only in development, never in production
-            if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
-              throw new Error('Invalid email or password.');
+          // Fallback for immediate demo testing — disabled in production
+          if (process.env.NODE_ENV !== 'production') {
+            const demoMatch = DEMO_USERS.find((u) => u.email.toLowerCase() === email);
+            if (demoMatch && credentials.password === 'password123') {
+              authLog('STEP5A_dev_demo_fallback', email);
+              return {
+                id: demoMatch._id,
+                name: demoMatch.name,
+                email: demoMatch.email,
+                role: demoMatch.role,
+                classOrSubject: demoMatch.classOrSubject,
+                subjects: demoMatch.subjects || [],
+                rollNumber: demoMatch.rollNumber || '',
+                yearOfStudy: demoMatch.yearOfStudy || 0,
+                collegeId: '',
+                collegeName: '',
+                accountStatus: 'active',
+                department: '',
+                branch: '',
+                section: '',
+              };
             }
           }
+
+          // ── THIS IS THE PRODUCTION FAILURE POINT ────────────────────────
+          // In production: user is null → no demo fallback → falls through
+          // to line below where `user.passwordHash` CRASHES (TypeError on null).
+          // NextAuth catches this as 401.
+          authLog('STEP5A_RETURN_NULL_NO_USER', email);
+          return null;
+        }
+
+        authLog(`STEP5B_user_found status=${user.accountStatus} hasHash=${!!user.passwordHash}`, email);
+
+        // ── STEP 6: Password verification ─────────────────────────────────
+        if (user.passwordHash) {
+          const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+          authLog(`STEP6_password_comparison result=${isValid}`, email);
+
+          if (!isValid) {
+            // Demo fallback: only in development, never in production
+            if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
+              authLog('STEP6_FAIL_wrong_password', email);
+              throw new Error('Invalid email or password.');
+            }
+            authLog('STEP6_dev_password123_fallback', email);
+          }
         } else {
-          console.log(`[AUTH] no_password_hash email_domain=${email.split('@')[1] || 'unknown'}`);
+          // User has no password hash (registered via OTP only, not activated)
+          authLog('STEP6_FAIL_no_password_hash', email);
           if (process.env.NODE_ENV === 'production' || credentials.password !== 'password123') {
             throw new Error('Invalid email or password.');
           }
         }
 
-        // Enforce account status for non-demo users
+        // ── STEP 7: Account status check ──────────────────────────────────
         if (user.accountStatus && user.accountStatus !== 'active' && !user._id?.toString().startsWith('demo')) {
-          console.log(`[AUTH] account_blocked status=${user.accountStatus} email_domain=${email.split('@')[1] || 'unknown'}`);
+          authLog(`STEP7_FAIL_account_status_${user.accountStatus}`, email);
           const statusMessages = {
             pending: 'Your account is pending College Admin approval. Please wait for verification.',
             rejected: 'Your registration was rejected. Please contact your College Admin.',
@@ -145,7 +178,8 @@ export const authOptions = {
           throw new Error(statusMessages[user.accountStatus] || 'Your account is not active.');
         }
 
-        console.log(`[AUTH] login_success role=${user.role} email_domain=${email.split('@')[1] || 'unknown'}`);
+        // ── STEP 8: SUCCESS — return authenticated user ────────────────────
+        authLog(`STEP8_SUCCESS role=${user.role}`, email);
         return {
           id: user._id.toString ? user._id.toString() : user._id,
           name: user.name,
