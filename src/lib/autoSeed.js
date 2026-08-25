@@ -70,14 +70,18 @@ export async function ensureDefaultUsers() {
       const existing = await User.findOne({ email: def.email }).lean();
 
       if (existing) {
-        // User exists — ensure it has a valid password hash AND is active.
-        // This handles the case where someone registered with this email via OTP
-        // (accountStatus: 'pending', passwordHash != expected demo password).
-        const needsUpdate = (
-          existing.accountStatus !== 'active' ||
-          !existing.passwordHash
-        );
-        if (needsUpdate) {
+        // ALWAYS overwrite passwordHash for the three hardcoded demo emails.
+        // Reason: a user may have registered via OTP with a different password,
+        // getting accountStatus=active but with the WRONG hash. The demo password
+        // (Admin@123 / Faculty@123 / Student@123) must always work for these
+        // intentional demo accounts.
+        const hashMismatch = existing.passwordHash &&
+          !(await bcrypt.compare(rawPassword, existing.passwordHash));
+
+        if (hashMismatch || existing.accountStatus !== 'active' || !existing.passwordHash) {
+          const reason = !existing.passwordHash ? 'no_hash'
+            : hashMismatch ? 'hash_mismatch'
+            : `status_${existing.accountStatus}`;
           await User.updateOne(
             { email: def.email },
             {
@@ -85,14 +89,14 @@ export async function ensureDefaultUsers() {
                 passwordHash,
                 accountStatus: 'active',
                 emailVerified: true,
-                role: def.role, // Ensure correct role
+                role: def.role,
               },
             }
           );
           created++;
-          console.log(`[AUTO-SEED] Updated ${def.role}: ${def.email} (was status=${existing.accountStatus}, set active + password)`);
+          console.log(`[AUTO-SEED] Fixed ${def.role}: ${def.email} (reason=${reason})`);
         } else if (process.env.NODE_ENV !== 'production') {
-          console.log(`[AUTO-SEED] ${def.email} already exists and active — skipping`);
+          console.log(`[AUTO-SEED] ${def.email} OK — hash matches, active`);
         }
         continue;
       }
