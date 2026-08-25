@@ -26,7 +26,7 @@ const DEFAULT_USERS = [
     role: 'admin',
     classOrSubject: 'Dean Academic Operations',
     envPasswordKey: 'DEFAULT_ADMIN_PASSWORD',
-    fallbackPassword: 'Admin@123',
+    fallbackPassword: 'password123',
   },
   {
     name: 'Dr. Priya Nair',
