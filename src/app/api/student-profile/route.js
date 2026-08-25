@@ -9,7 +9,7 @@ export async function GET(request) {
     const userRole = session?.user?.role || 'admin';
 
     const { searchParams } = new URL(request.url);
-    const targetStudentId = searchParams.get('studentId') || '64f1a2b3c4d5e6f7a8b9c001';
+    const targetStudentId = searchParams.get('studentId') || '';
 
     // Allow admin, faculty, or the student themselves
     if (userRole !== 'admin' && userRole !== 'faculty' && session?.user?.id !== targetStudentId) {
@@ -38,6 +38,6 @@ export async function GET(request) {
 
     return NextResponse.json({ success: true, profile });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

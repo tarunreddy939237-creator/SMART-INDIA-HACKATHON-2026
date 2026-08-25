@@ -6,13 +6,14 @@ import {
   User, Mail, BookOpen, GraduationCap, Flame, CalendarCheck,
   Award, Brain, TrendingUp, ShieldCheck, ScanFace, Clock,
 } from 'lucide-react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 import LoadingState from '@/components/shared/LoadingState';
+import GuardianNotificationPanel from '@/components/dashboard/GuardianNotificationPanel';
 import Link from 'next/link';
 
 interface ProfileData {
-  user: { _id: string; name: string; email: string; role: string; classOrSubject: string };
+  user: { _id: string; name: string; email: string; role: string; classOrSubject: string; rollNumber?: string; yearOfStudy?: number };
   streak: { currentStreak: number; longestStreak: number; badges: string[] };
   attendance: { overallPercentage: number; totalClasses: number; presentCount: number; absentCount: number };
   quizSummary: { avgScore: number; totalAttempts: number; weakTopics: { topic: string; missedCount: number }[] };
@@ -51,10 +52,10 @@ export default function StudentProfilePage() {
   const attendanceColor = attendancePct >= 75 ? 'text-emerald-700' : 'text-rose-700';
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="My Profile" roleBadge="STUDENT" />
+        <StudentTopbar title="My Profile" subtitle="Academic profile & settings" />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
 
           {loading ? <LoadingState message="Loading your profile..." /> : (
@@ -73,6 +74,16 @@ export default function StudentProfilePage() {
                     <span className="flex items-center gap-1.5 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded font-medium">
                       <GraduationCap className="w-3.5 h-3.5" />{profile?.user.classOrSubject || (session?.user as any)?.classOrSubject || 'N/A'}
                     </span>
+                    {(profile?.user.rollNumber || (session?.user as any)?.rollNumber) && (
+                      <span className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded font-medium">
+                        🆔 {profile?.user.rollNumber || (session?.user as any)?.rollNumber}
+                      </span>
+                    )}
+                    {(profile?.user.yearOfStudy || (session?.user as any)?.yearOfStudy) ? (
+                      <span className="flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded font-medium">
+                        📚 {['', '1st Year', '2nd Year', '3rd Year', '4th Year'][profile?.user.yearOfStudy || (session?.user as any)?.yearOfStudy || 0]}
+                      </span>
+                    ) : null}
                     <span className="text-xs font-semibold px-2 py-0.5 rounded border capitalize bg-slate-50 border-slate-200 text-slate-600">
                       {profile?.user.role || 'student'}
                     </span>
@@ -229,6 +240,9 @@ export default function StudentProfilePage() {
                   </div>
                 </div>
               </div>
+
+              {/* Guardian Notification Settings */}
+              {studentId && <GuardianNotificationPanel studentId={studentId} />}
 
               {/* Privacy info */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex items-start gap-3">

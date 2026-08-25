@@ -16,12 +16,15 @@ import {
   Pencil,
   Trash2,
   Plus,
+  UserCheck, Clock,
 } from 'lucide-react';
+import Link from 'next/link';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
 import StatCard from '@/components/dashboard/StatCard';
 import WowInsightCard from '@/components/dashboard/WowInsightCard';
 import StudentDrilldownModal from '@/components/dashboard/StudentDrilldownModal';
+import RiskBreakdownPanel from '@/components/dashboard/RiskBreakdownPanel';
 import Badge from '@/components/shared/Badge';
 import {
   AreaChart,
@@ -84,6 +87,8 @@ export default function AdminControlTowerPage() {
     loadSubjects();
   };
 
+  const [pendingCount, setPendingCount] = useState(0);
+
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analytics, setAnalytics] = useState<any>({
     totalStudents: 0,
@@ -132,6 +137,7 @@ export default function AdminControlTowerPage() {
     loadAtRisk();
     loadSubjects();
     fetch('/api/manual-attendance?summary=1').then(r => r.json()).then(d => setManualSessions(d.sessions || [])).catch(() => {});
+    fetch('/api/admin/pending-count').then(r => r.json()).then(d => setPendingCount(d.count || 0)).catch(() => {});
   }, []);
 
   const handleOpenStudentDrilldown = (studentId: string) => {
@@ -153,23 +159,26 @@ export default function AdminControlTowerPage() {
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-8 overflow-y-auto">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4"
+            style={{ borderBottom: '1px solid rgba(255,170,0,0.2)' }}>
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 live-indicator" />
-                <span className="text-xs font-semibold uppercase tracking-wider text-emerald-700">
-                  SIH 2026 Edition
+                <span className="w-2 h-2 rounded-full live-indicator" style={{ background: '#1CDEC8' }} />
+                <span className="font-mono text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--ev-indigo)' }}>
+                  SIH 2026 · Smart Education · Campus-Wide
                 </span>
               </div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight" style={{ letterSpacing: '-0.02em' }}>
                 Academic Operations & Institutional Overview
               </h1>
             </div>
 
             <div className="flex items-center gap-2">
-              <Badge variant="amber" size="md" dot>
+              <span className="inline-flex items-center gap-2 font-mono text-xs font-bold px-3 py-1.5 rounded-xl"
+                style={{ background: 'rgba(255,170,0,0.1)', color: 'var(--ev-amber)', border: '1px solid rgba(255,170,0,0.3)' }}>
+                <span className="w-2 h-2 rounded-full live-indicator" style={{ background: '#FFAA00' }} />
                 {analyticsLoading ? '…' : analytics.activeClassesCount} Active Class Sessions
-              </Badge>
+              </span>
             </div>
           </div>
 
@@ -177,12 +186,48 @@ export default function AdminControlTowerPage() {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Advisory action initiated! Automated check-in reminders queued for Section CSE-B students.</span>
+              className="p-4 rounded-2xl font-mono text-xs font-semibold flex items-center gap-2"
+              style={{ background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(28,222,200,0.3)', color: '#0E8F82' }}>
+              <CheckCircle2 className="w-4 h-4 shrink-0" style={{ color: 'var(--ev-indigo)' }} />
+              <span>Advisory action initiated · Automated check-in reminders queued for Section CSE-B students.</span>
             </motion.div>
           )}
+
+          {/* PENDING ACCOUNT APPROVALS CARD */}
+          <Link href="/admin/approvals" className="block">
+            <div className="bg-white rounded-2xl p-5 border-2 transition-all hover:shadow-lg cursor-pointer group"
+              style={{ borderColor: pendingCount > 0 ? 'rgba(255,77,94,0.4)' : 'rgba(79,70,229,0.15)',
+                boxShadow: pendingCount > 0 ? '0 4px 16px rgba(225,29,72,0.06)' : 'none' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center"
+                    style={{ background: pendingCount > 0 ? 'rgba(225,29,72,0.06)' : 'rgba(79,70,229,0.06)',
+                      border: `1px solid ${pendingCount > 0 ? 'rgba(255,77,94,0.2)' : 'rgba(79,70,229,0.15)'}` }}>
+                    <UserCheck className="w-6 h-6" style={{ color: pendingCount > 0 ? '#FF4D5E' : '#1CDEC8' }} />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-base font-bold text-slate-900">Pending Account Approvals</h3>
+                    <p className="text-xs text-slate-500">
+                      {pendingCount > 0
+                        ? `${pendingCount} registration request${pendingCount === 1 ? '' : 's'} waiting for review`
+                        : 'No pending registration requests'
+                      }
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {pendingCount > 0 && (
+                    <span className="inline-flex items-center gap-1.5 font-mono text-xs font-bold px-3 py-1.5 rounded-xl"
+                      style={{ background: 'rgba(225,29,72,0.06)', color: 'var(--ev-rose)', border: '1px solid rgba(255,77,94,0.25)' }}>
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FF4D5E' }} />
+                      {pendingCount} Pending
+                    </span>
+                  )}
+                  <ChevronRight className="w-5 h-5 text-slate-400 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </div>
+          </Link>
 
           {/* 1. THE WOW INSIGHT CARD */}
           <WowInsightCard
@@ -191,47 +236,68 @@ export default function AdminControlTowerPage() {
 
           {/* AT-RISK PANEL */}
           {atRiskLoading ? (
-            <div className="study-card p-6">
+            <div className="p-6 rounded-2xl" style={{ border: '1px solid rgba(255,77,94,0.2)', background: 'rgba(255,77,94,0.03)' }}>
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-4 h-4 text-rose-400" />
-                <span className="text-sm font-bold text-slate-700">Loading at-risk data across all sections…</span>
+                <AlertTriangle className="w-4 h-4" style={{ color: 'var(--ev-rose)' }} />
+                <span className="font-display text-sm font-bold text-slate-700">Loading at-risk data across all sections…</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-20 rounded-xl bg-slate-100 animate-pulse" />
+                  <div key={i} className="h-20 rounded-xl animate-pulse" style={{ background: 'rgba(225,29,72,0.06)' }} />
                 ))}
               </div>
             </div>
           ) : atRiskStudents.filter(s => s.riskTier !== 'Low').length > 0 && (
-            <div className="study-card p-6 space-y-4">
+            <div className="p-6 rounded-2xl space-y-4" style={{ background: '#fff', border: '1px solid rgba(255,77,94,0.25)', boxShadow: '0 2px 12px rgba(255,77,94,0.06)' }}>
               <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" style={{ color: 'var(--ev-rose)' }} />
                   At-Risk Student Radar
-                  <span className="text-xs font-normal text-slate-500 ml-1">— All Sections</span>
+                  <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                    style={{ background: 'rgba(225,29,72,0.06)', color: 'var(--ev-rose)', border: '1px solid rgba(255,77,94,0.25)' }}>
+                    ALL SECTIONS
+                  </span>
                 </h3>
-                <span className="text-xs text-slate-500">Faculty Console shows full detail · Not visible to students</span>
+                <span className="font-mono text-[10px] text-slate-400">Faculty Console shows full detail · Not visible to students</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {atRiskStudents.filter(s => s.riskTier !== 'Low').map((s, i) => (
                   <div
                     key={i}
                     onClick={() => handleOpenStudentDrilldown(s.studentId)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-                      s.riskTier === 'High'
-                        ? 'bg-rose-50 border-rose-200 hover:border-rose-400'
-                        : 'bg-amber-50 border-amber-200 hover:border-amber-400'
-                    }`}
+                    className="p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md relative overflow-hidden"
+                    style={s.riskTier === 'High'
+                      ? { background: 'rgba(255,77,94,0.05)', borderColor: 'rgba(255,77,94,0.3)' }
+                      : { background: 'rgba(255,170,0,0.05)', borderColor: 'rgba(255,170,0,0.3)' }}
                   >
+                    {/* Left edge accent */}
+                    <div className="absolute top-0 left-0 bottom-0 w-0.5"
+                      style={{ background: s.riskTier === 'High' ? '#FF4D5E' : '#FFAA00' }} />
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-bold text-slate-900">{s.name}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        s.riskTier === 'High' ? 'bg-rose-100 text-rose-700' : 'bg-amber-100 text-amber-700'
-                      }`}>{s.riskTier} Risk</span>
+                      <span className="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded"
+                        style={s.riskTier === 'High'
+                          ? { background: 'rgba(255,77,94,0.12)', color: 'var(--ev-rose)', border: '1px solid rgba(255,77,94,0.3)' }
+                          : { background: 'rgba(255,170,0,0.12)', color: '#B45309', border: '1px solid rgba(255,170,0,0.3)' }
+                        }>
+                        {s.riskTier.toUpperCase()} RISK
+                      </span>
                     </div>
                     <p className="text-[11px] text-slate-500 font-semibold mb-0.5">{s.classOrSubject || ''}</p>
-                    <p className="text-[11px] text-slate-600 font-mono mb-1">Attendance: {s.attendancePct}%</p>
-                    <p className="text-[10px] text-slate-500 leading-relaxed">{s.riskReasons?.[0]}</p>
+                    <p className="font-mono text-[11px] text-slate-600 mb-1">Attendance: <strong>{s.attendancePct}%</strong></p>
+                    {s.structuredFactors?.length ? (
+                      <div className="mt-2">
+                        <RiskBreakdownPanel
+                          riskScore={s.riskScore}
+                          riskTier={s.riskTier}
+                          factors={s.structuredFactors}
+                          reasons={s.riskReasons || []}
+                          compact={true}
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 leading-relaxed">{s.riskReasons?.[0]}</p>
+                    )}
                   </div>
                 ))}
               </div>
@@ -247,6 +313,7 @@ export default function AdminControlTowerPage() {
               icon={Users}
               trend={{ value: '100% Enrolled', isPositive: true }}
               accentColor="indigo"
+              ringValue={100}
             />
             <StatCard
               title="Campus Attendance"
@@ -254,7 +321,8 @@ export default function AdminControlTowerPage() {
               subtitle="+1.8% vs previous period"
               icon={CalendarCheck}
               trend={{ value: '1.8%', isPositive: true }}
-              accentColor="emerald"
+              accentColor={analytics.averageAttendance >= 75 ? 'emerald' : 'amber'}
+              ringValue={analytics.averageAttendance}
             />
             <StatCard
               title="Average Quiz Score"
@@ -263,6 +331,7 @@ export default function AdminControlTowerPage() {
               icon={Award}
               trend={{ value: '3.2%', isPositive: true }}
               accentColor="cyan"
+              ringValue={analytics.averageQuizScore}
             />
             <StatCard
               title="Faculty On-Duty"
@@ -277,67 +346,80 @@ export default function AdminControlTowerPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-emerald-600" />
+                <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Activity className="w-4 h-4" style={{ color: 'var(--ev-indigo)' }} />
                   Real-Time Classroom Attendance Status
                 </h3>
-                <p className="text-xs text-slate-500">Live biometric attendance feeds verified per lecture block</p>
+                <p className="font-mono text-[10px] text-slate-400" style={{ letterSpacing: '0.02em' }}>Live biometric attendance feeds verified per lecture block</p>
               </div>
-              <span className="text-xs font-medium text-indigo-700 flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 live-indicator" />
-                Live Sync (3s Interval)
+              <span className="font-mono text-[10px] font-bold flex items-center gap-1.5"
+                style={{ color: 'var(--ev-indigo)' }}>
+                <span className="w-2 h-2 rounded-full live-indicator" style={{ background: '#1CDEC8' }} />
+                LIVE · 3s INTERVAL
               </span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {analytics.activeClasses.map((cls: any) => {
+              {analytics.activeClasses.length === 0 ? (
+                <div className="col-span-full rounded-2xl p-10 flex flex-col items-center justify-center gap-3"
+                  style={{ background: 'rgba(28,222,200,0.03)', border: '1px dashed rgba(28,222,200,0.25)' }}>
+                  <Activity strokeWidth={1.5} style={{ width: 28, height: 28, color: 'rgba(28,222,200,0.35)' }} />
+                  <p className="font-mono text-[11px] text-center" style={{ color: 'rgba(28,222,200,0.5)' }}>No active class sessions</p>
+                  <p className="text-xs text-slate-400">Sessions appear here when faculty start attendance</p>
+                </div>
+              ) : analytics.activeClasses.map((cls: any) => {
                 const isUnderperforming = cls.attendancePercent < 85;
                 return (
                   <div
                     key={cls.id}
-                    className={`study-card study-card-hover p-5 transition-all ${
-                      isUnderperforming ? 'border-amber-300' : ''
-                    }`}
+                    className="bg-white rounded-2xl p-5 border transition-all hover:shadow-md"
+                    style={{
+                      borderColor: isUnderperforming ? 'rgba(255,170,0,0.4)' : 'rgba(79,70,229,0.15)',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    }}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
+                        <span className="font-mono text-[10px] font-bold" style={{ color: 'var(--ev-indigo)' }}>
                           {cls.class}
                         </span>
                         <h4 className="text-sm font-bold text-slate-900 leading-tight">{cls.subject}</h4>
                         <p className="text-xs text-slate-500">{cls.faculty}</p>
                       </div>
-                      <Badge
-                        variant={cls.status === 'Active' ? 'emerald' : cls.status === 'Upcoming' ? 'indigo' : 'slate'}
-                        size="sm"
-                        dot={cls.status === 'Active'}
-                      >
+                      <span className="font-mono text-[9px] font-bold px-2 py-1 rounded-lg flex items-center gap-1.5"
+                        style={cls.status === 'Active'
+                          ? { background: 'rgba(16,185,129,0.08)', color: 'var(--ev-emerald)', border: '1px solid rgba(16,185,129,0.25)' }
+                          : cls.status === 'Upcoming'
+                          ? { background: 'rgba(79,70,229,0.06)', color: 'var(--ev-indigo)', border: '1px solid rgba(79,70,229,0.15)' }
+                          : { background: '#F1F5F9', color: '#94A3B8', border: '1px solid #E2E8F0' }
+                        }>
+                        {cls.status === 'Active' && <span className="w-1.5 h-1.5 rounded-full live-indicator" style={{ background: '#10B981' }} />}
                         {cls.status}
-                      </Badge>
+                      </span>
                     </div>
 
                     <div className="my-3 space-y-1.5">
-                      <div className="flex items-center justify-between text-xs font-mono">
-                        <span className="text-slate-600">
-                          {cls.present} / {cls.total} Present
-                        </span>
-                        <span className={`font-bold ${cls.attendancePercent >= 85 ? 'text-emerald-700' : 'text-amber-700'}`}>
+                      <div className="flex items-center justify-between font-mono text-xs">
+                        <span className="text-slate-600">{cls.present} / {cls.total} Present</span>
+                        <span className="font-bold" style={{ color: cls.attendancePercent >= 85 ? '#10B981' : '#FFAA00' }}>
                           {cls.attendancePercent}%
                         </span>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: '#F1F5F9' }}>
                         <div
-                          className={`h-full rounded-full ${
-                            cls.attendancePercent >= 85 ? 'bg-emerald-500' : 'bg-amber-500'
-                          }`}
-                          style={{ width: `${cls.attendancePercent}%` }}
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${cls.attendancePercent}%`,
+                            background: cls.attendancePercent >= 85 ? '#10B981' : '#FFAA00',
+                          }}
                         />
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100">
-                      <span>Absent: {cls.absent} students</span>
-                      {isUnderperforming && <span className="text-amber-700 font-semibold">Flagged for Review</span>}
+                    <div className="flex items-center justify-between font-mono text-[10px] pt-2"
+                      style={{ borderTop: '1px solid rgba(28,222,200,0.1)', color: '#94A3B8' }}>
+                      <span>Absent: {cls.absent}</span>
+                      {isUnderperforming && <span className="font-bold" style={{ color: 'var(--ev-amber)' }}>⚠ FLAGGED</span>}
                     </div>
                   </div>
                 );
@@ -347,143 +429,183 @@ export default function AdminControlTowerPage() {
 
           {/* 4. Institutional Analytics: Attendance Trends & Quiz Performance */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 study-card p-6">
+            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Campus-Wide Attendance Trend</h3>
-                  <p className="text-xs text-slate-500">Weekly trajectory across all 6 sections</p>
+                  <h3 className="font-display text-sm font-bold text-slate-900">Campus-Wide Attendance Trend</h3>
+                  <p className="font-mono text-[10px] text-slate-400" style={{ letterSpacing: '0.02em' }}>Weekly trajectory across all 6 sections</p>
                 </div>
-                <Badge variant="indigo" size="sm">
-                  Target: &gt;90%
-                </Badge>
+                <span className="font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg"
+                  style={{ background: 'rgba(79,70,229,0.06)', color: 'var(--ev-indigo)', border: '1px solid rgba(79,70,229,0.15)' }}>
+                  TARGET &gt;90%
+                </span>
               </div>
 
               <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={analytics.attendanceTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorAdminAtt" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} />
-                    <YAxis domain={[75, 100]} stroke="#94A3B8" fontSize={11} />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E2E8F0', borderRadius: '12px', fontSize: '12px', color: '#0F172A', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
-                    <Area type="monotone" dataKey="attendance" stroke="#4F46E5" strokeWidth={2.5} fillOpacity={1} fill="url(#colorAdminAtt)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {analytics.attendanceTrends?.length >= 2 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={analytics.attendanceTrends} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="colorAdminAtt" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#1CDEC8" stopOpacity={0.2} />
+                          <stop offset="95%" stopColor="#1CDEC8" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <XAxis dataKey="date" stroke="#94A3B8" fontSize={11} />
+                      <YAxis domain={[75, 100]} stroke="#94A3B8" fontSize={11} />
+                      <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: 'rgba(28,222,200,0.3)', borderRadius: '12px', fontSize: '12px', color: '#0F172A', boxShadow: '0 4px 12px rgba(28,222,200,0.1)' }} />
+                      <Area type="monotone" dataKey="attendance" stroke="#1CDEC8" strokeWidth={2.5} fillOpacity={1} fill="url(#colorAdminAtt)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full rounded-2xl flex flex-col items-center justify-center gap-2"
+                    style={{ background: 'rgba(28,222,200,0.03)', border: '1px dashed rgba(79,70,229,0.15)' }}>
+                    <Activity strokeWidth={1.5} style={{ width: 24, height: 24, color: 'rgba(28,222,200,0.4)' }} />
+                    <p className="font-mono text-[11px]" style={{ color: 'rgba(28,222,200,0.5)' }}>Insufficient data points</p>
+                    <p className="text-[10px] text-slate-400">Trend appears after 2+ data points</p>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="lg:col-span-6 study-card p-6">
+            <div className="lg:col-span-6 bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900">Diagnostic Score by Discipline</h3>
-                  <p className="text-xs text-slate-500">Average MCQ mastery rates</p>
+                  <h3 className="font-display text-sm font-bold text-slate-900">Diagnostic Score by Discipline</h3>
+                  <p className="font-mono text-[10px] text-slate-400" style={{ letterSpacing: '0.02em' }}>Average MCQ mastery rates</p>
                 </div>
-                <Badge variant="indigo" size="sm">
-                  Mean: {analyticsLoading ? '…' : `${analytics.averageQuizScore}%`}
-                </Badge>
+                <span className="font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg"
+                  style={{ background: 'rgba(217,119,6,0.06)', color: 'var(--ev-amber)', border: '1px solid rgba(255,170,0,0.2)' }}>
+                  MEAN: {analyticsLoading ? '…' : `${analytics.averageQuizScore}%`}
+                </span>
               </div>
 
               <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={analytics.quizPerformance} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <XAxis dataKey="subject" stroke="#94A3B8" fontSize={10} />
-                    <YAxis domain={[50, 100]} stroke="#94A3B8" fontSize={11} />
-                    <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: '#E2E8F0', borderRadius: '12px', fontSize: '12px', color: '#0F172A', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }} />
-                    <Bar dataKey="averageScore" fill="#4F46E5" radius={[6, 6, 0, 0]} name="Avg Score %" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {analytics.quizPerformance?.length >= 1 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={analytics.quizPerformance} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <XAxis dataKey="subject" stroke="#94A3B8" fontSize={10} />
+                      <YAxis domain={[50, 100]} stroke="#94A3B8" fontSize={11} />
+                      <Tooltip contentStyle={{ backgroundColor: '#fff', borderColor: 'rgba(255,170,0,0.3)', borderRadius: '12px', fontSize: '12px', color: '#0F172A', boxShadow: '0 4px 12px rgba(255,170,0,0.1)' }} />
+                      <Bar dataKey="averageScore" fill="#FFAA00" radius={[6, 6, 0, 0]} name="Avg Score %" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full rounded-2xl flex flex-col items-center justify-center gap-2"
+                    style={{ background: 'rgba(255,170,0,0.03)', border: '1px dashed rgba(255,170,0,0.2)' }}>
+                    <Award strokeWidth={1.5} style={{ width: 24, height: 24, color: 'rgba(255,170,0,0.4)' }} />
+                    <p className="font-mono text-[11px]" style={{ color: 'rgba(255,170,0,0.5)' }}>No quiz data yet</p>
+                    <p className="text-[10px] text-slate-400">Appears after quizzes are taken</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="study-card p-6 space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-amber-500" />
+                <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Flame className="w-4 h-4" style={{ color: 'var(--ev-amber)' }} />
                   Academic Consistency & Streak Leaders
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="font-mono text-[10px] text-slate-400" style={{ letterSpacing: '0.02em' }}>
                   Click any student to inspect their academic dossier and weak topics
                 </p>
               </div>
-              <span className="text-xs text-indigo-700 font-semibold">Top 5 High-Consistency Scholars</span>
+              <span className="font-mono text-[10px] font-bold" style={{ color: 'var(--ev-amber)' }}>TOP 5 HIGH-CONSISTENCY SCHOLARS</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-              {analytics.streakLeaderboard.map((student: any, idx: number) => (
+              {analytics.streakLeaderboard.length === 0 ? (
+                <div className="col-span-full rounded-2xl p-8 flex flex-col items-center gap-2"
+                  style={{ background: 'rgba(255,170,0,0.03)', border: '1px dashed rgba(255,170,0,0.25)' }}>
+                  <Flame strokeWidth={1.5} style={{ width: 24, height: 24, color: 'rgba(255,170,0,0.4)' }} />
+                  <p className="font-mono text-[11px] text-center" style={{ color: 'rgba(255,170,0,0.5)' }}>No streak data yet</p>
+                </div>
+              ) : analytics.streakLeaderboard.map((student: any, idx: number) => (
                 <div
                   key={idx}
                   onClick={() => handleOpenStudentDrilldown(student.id)}
-                  className="p-4 rounded-xl bg-slate-50 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/40 cursor-pointer transition-all flex flex-col justify-between group"
+                  className="rounded-xl border cursor-pointer transition-all p-4 flex flex-col justify-between group relative overflow-hidden"
+                  style={{ background: idx === 0 ? '#0C1222' : '#F9FAFB', borderColor: idx === 0 ? 'rgba(255,170,0,0.4)' : '#E2E8F0' }}
                 >
+                  {idx === 0 && <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: 'linear-gradient(90deg, #FFAA00, #FF4D5E)' }} />}
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="w-5 h-5 rounded-md bg-white border border-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-mono font-bold shadow-sm">
+                      <span className="font-mono w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold shadow-sm"
+                        style={idx === 0
+                          ? { background: 'rgba(255,170,0,0.15)', color: 'var(--ev-amber)', border: '1px solid rgba(255,170,0,0.3)' }
+                          : { background: '#fff', border: '1px solid #E2E8F0', color: '#64748B' }
+                        }>
                         #{idx + 1}
                       </span>
-                      <span className="text-[10px] font-semibold text-indigo-700">{student.classOrSubject}</span>
+                      <span className="font-mono text-[9px] font-bold" style={{ color: idx === 0 ? 'rgba(28,222,200,0.7)' : '#94A3B8' }}>
+                        {student.classOrSubject}
+                      </span>
                     </div>
-                    <h4 className="text-xs font-bold text-slate-900 group-hover:text-indigo-700 transition-colors">
+                    <h4 className="text-xs font-bold leading-tight" style={{ color: idx === 0 ? '#fff' : '#0F172A' }}>
                       {student.name}
                     </h4>
-                    <p className="text-[11px] font-bold text-amber-700 flex items-center gap-1 mt-1 font-mono">
-                      <Flame className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                    <p className="font-mono text-[11px] font-bold flex items-center gap-1 mt-1" style={{ color: 'var(--ev-amber)' }}>
+                      <Flame className="w-3.5 h-3.5 fill-current" />
                       {student.streak} Days
                     </p>
                   </div>
-                  <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                  <div className="mt-3 pt-2 flex items-center justify-between font-mono text-[10px]"
+                    style={{ borderTop: `1px solid ${idx === 0 ? 'rgba(255,170,0,0.15)' : '#F1F5F9'}`, color: idx === 0 ? 'rgba(28,222,200,0.5)' : '#94A3B8' }}>
                     <span>Inspect Profile</span>
-                    <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform text-slate-400" />
+                    <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
           {/* Subject Management */}
-          <div className="study-card p-6 space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <BookOpen className="w-4 h-4 text-indigo-600" />
+              <h3 className="font-display text-base font-bold text-slate-900 flex items-center gap-2">
+                <BookOpen strokeWidth={1.5} className="w-4 h-4" style={{ color: 'var(--ev-indigo)' }} />
                 Subject Assignments
               </h3>
-              <span className="text-xs text-slate-500">Assign subjects to sections — visible to faculty &amp; students</span>
+              <span className="font-mono text-[10px] text-slate-400">Assign subjects to sections · visible to faculty &amp; students</span>
             </div>
 
-            {/* Add / Edit form */}
             <div className="flex flex-wrap gap-3 items-end">
               <div>
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Section</label>
+                <label className="block font-mono text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Section</label>
                 <select
                   value={subjectForm.section}
                   onChange={e => setSubjectForm(f => ({ ...f, section: e.target.value }))}
-                  className="bg-white border border-slate-300 text-xs rounded-xl px-3 py-2 outline-none"
+                  className="bg-white border border-slate-200 text-xs rounded-xl px-3 py-2 outline-none"
+                  style={{ fontFamily: 'inherit' }}
                 >
                   {ALL_SECTIONS.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-[11px] font-semibold text-slate-600 mb-1">Subject Name</label>
+                <label className="block font-mono text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-1">Subject Name</label>
                 <input
                   type="text"
                   placeholder="e.g. Digital Electronics"
                   value={subjectForm.subject}
                   onChange={e => setSubjectForm(f => ({ ...f, subject: e.target.value }))}
-                  className="w-full bg-white border border-slate-300 focus:border-indigo-500 text-xs rounded-xl px-3 py-2 outline-none"
+                  className="w-full bg-white border border-slate-200 text-xs rounded-xl px-3 py-2 outline-none"
+                  style={{ transition: 'border-color 0.15s' }}
+                  onFocus={e => (e.target.style.borderColor = '#1CDEC8')}
+                  onBlur={e => (e.target.style.borderColor = '#E2E8F0')}
                 />
               </div>
               <button
                 onClick={handleSaveSubject}
                 disabled={subjectSaving || !subjectForm.subject.trim()}
-                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #5B52FF, #1CDEC8)' }}
               >
                 <Plus className="w-3.5 h-3.5" />{subjectSaving ? 'Saving…' : 'Assign'}
               </button>
-              {subjectMsg && <span className={`text-xs font-semibold ${subjectMsg === 'Saved!' ? 'text-emerald-700' : 'text-rose-700'}`}>{subjectMsg}</span>}
+              {subjectMsg && <span className={`font-mono text-xs font-bold ${subjectMsg === 'Saved!' ? '' : ''}`}
+                style={{ color: subjectMsg === 'Saved!' ? '#10B981' : '#FF4D5E' }}>{subjectMsg}</span>}
             </div>
 
             {/* Current assignments table */}

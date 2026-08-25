@@ -3,11 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users, Search, Send, AlertTriangle, CheckCircle2,
-  Mail, BookOpen, CalendarCheck, Award, X, Bell, Star, AlertCircle, Pencil, Save,
+  Mail, BookOpen, CalendarCheck, Award, X, Bell, Star, AlertCircle, Pencil, Save, BarChart2,
 } from 'lucide-react';
 import Sidebar   from '@/components/dashboard/Sidebar';
 import Topbar    from '@/components/dashboard/Topbar';
-import Badge     from '@/components/shared/Badge';
+import HealthAura from '@/components/dashboard/HealthAura';
 
 const SECTIONS: Record<string, string[]> = {
   CSE:   ['CSE-A',   'CSE-B',   'CSE-C'],
@@ -30,12 +30,22 @@ const RISK_VARIANT: Record<string, 'red' | 'amber' | 'emerald'> = {
   High: 'red', Medium: 'amber', Low: 'emerald',
 };
 
+/** Map risk tier string to a representative 0-100 score for the aura */
+function tierToScore(tier: string | undefined): number | null {
+  if (!tier) return null;
+  if (tier === 'High') return 75;
+  if (tier === 'Medium') return 45;
+  if (tier === 'Low') return 15;
+  return null;
+}
+
 interface Student {
   id: string; name: string; email: string;
   classOrSubject: string;
+  rollNumber?: string; yearOfStudy?: number;
   subjects: string[]; labs: string[];
   attendancePct: number; avgQuizScore: number;
-  riskTier?: string; successScore?: number | null;
+  riskTier?: string; riskScore?: number; successScore?: number | null;
 }
 
 interface NoticeForm { type: string; subject: string; message: string; }
@@ -62,6 +72,13 @@ export default function FacultyStudentsPage() {
   const [savingSubjects, setSavingSubjects]   = useState(false);
   const [subjectMsg, setSubjectMsg]           = useState('');
 
+  // Send to parent state
+  const [sendParentModal, setSendParentModal] = useState(false);
+  const [sendParentStudent, setSendParentStudent] = useState<Student | null>(null);
+  const [sendParentChannel, setSendParentChannel] = useState<'whatsapp' | 'sms'>('whatsapp');
+  const [sendParentLoading, setSendParentLoading] = useState(false);
+  const [sendParentResult, setSendParentResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const loadStudents = useCallback(async (sec: string) => {
     setLoading(true);
     try {
@@ -78,6 +95,7 @@ export default function FacultyStudentsPage() {
         attendancePct:  s.attendancePct  ?? 0,
         avgQuizScore:   s.avgQuizScore   ?? 0,
         riskTier:       s.riskTier,
+        riskScore:      s.riskScore,
         successScore:   s.successScore,
       }));
       setStudents(list);
@@ -126,6 +144,36 @@ export default function FacultyStudentsPage() {
       } else { setSubjectMsg(data.error || 'Failed to save.'); }
     } catch { setSubjectMsg('Network error.'); }
     finally { setSavingSubjects(false); }
+  };
+
+  const handleSendToParent = (student: Student) => {
+    setSendParentStudent(student);
+    setSendParentChannel('whatsapp');
+    setSendParentResult(null);
+    setSendParentModal(true);
+  };
+
+  const handleConfirmSendToParent = async () => {
+    if (!sendParentStudent) return;
+    setSendParentLoading(true);
+    setSendParentResult(null);
+    try {
+      const res = await fetch('/api/communication/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ studentId: sendParentStudent.id, channel: sendParentChannel }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSendParentResult({ success: true, message: data.message });
+      } else {
+        setSendParentResult({ success: false, message: data.error || 'Failed to send.' });
+      }
+    } catch {
+      setSendParentResult({ success: false, message: 'Network error. Please try again.' });
+    } finally {
+      setSendParentLoading(false);
+    }
   };
 
   const handleSendNotice = async (e: React.FormEvent) => {
@@ -220,31 +268,16 @@ export default function FacultyStudentsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {filtered.map(s => (
                 <div key={s.id} onClick={() => openStudent(s)}
-                  className="bg-white border border-slate-200 rounded-2xl p-4 cursor-pointer hover:border-indigo-300 hover:shadow-md transition-all group">
-                  <div className="flex items-start justify-between gap-2 mb-3">
-                    <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shrink-0">
-                      {s.name.charAt(0)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-bold text-slate-900 truncate group-hover:text-indigo-700 transition-colors">{s.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{s.email}</p>
-                    </div>
-                    {s.riskTier && <Badge variant={RISK_VARIANT[s.riskTier] ?? 'slate'} size="sm">{s.riskTier}</Badge>}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-slate-50 rounded-lg p-2">
-                      <p className="text-[10px] text-slate-500 flex items-center justify-center gap-0.5"><CalendarCheck className="w-3 h-3" /> Att.</p>
-                      <p className={`text-xs font-bold mt-0.5 ${s.attendancePct >= 85 ? 'text-emerald-700' : s.attendancePct >= 75 ? 'text-amber-700' : 'text-rose-700'}`}>{s.attendancePct}%</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg p-2">
-                      <p className="text-[10px] text-slate-500 flex items-center justify-center gap-0.5"><Award className="w-3 h-3" /> Quiz</p>
-                      <p className="text-xs font-bold mt-0.5 text-indigo-700">{s.avgQuizScore}%</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-lg p-2">
-                      <p className="text-[10px] text-slate-500 flex items-center justify-center gap-0.5"><BookOpen className="w-3 h-3" /> Subjects</p>
-                      <p className="text-xs font-bold mt-0.5 text-slate-700">{s.subjects.filter(Boolean).length}/5</p>
-                    </div>
-                  </div>
+                  className="bg-white border border-slate-200 rounded-2xl cursor-pointer hover:shadow-md transition-all group">
+                  <HealthAura
+                    riskScore={s.riskScore ?? tierToScore(s.riskTier)}
+                    displayValue={`${s.attendancePct}%`}
+                    name={s.name}
+                    subtitle={`${s.rollNumber ? s.rollNumber + ' · ' : ''}${s.classOrSubject}`}
+                    size="sm"
+                    tier={s.riskTier}
+                    interactive={false}
+                  />
                 </div>
               ))}
             </div>
@@ -264,7 +297,7 @@ export default function FacultyStudentsPage() {
                 </div>
                 <div>
                   <h2 className="text-base font-bold text-slate-900">{selected.name}</h2>
-                  <p className="text-xs text-slate-500">{selected.email} · {selected.classOrSubject}</p>
+                  <p className="text-xs text-slate-500">{selected.email} · {selected.rollNumber ? `Roll: ${selected.rollNumber} · ` : ''}{selected.classOrSubject}</p>
                 </div>
               </div>
               <button onClick={() => setSelected(null)} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
@@ -287,6 +320,22 @@ export default function FacultyStudentsPage() {
                   <p className="text-[10px] text-slate-500 uppercase tracking-wider">Risk</p>
                   <p className={`text-xl font-black mt-1 ${selected.riskTier === 'High' ? 'text-rose-700' : selected.riskTier === 'Medium' ? 'text-amber-700' : 'text-emerald-700'}`}>{selected.riskTier || '—'}</p>
                 </div>
+              </div>
+
+              {/* ── Report Actions ── */}
+              <div className="flex gap-2">
+                <a href={`/api/student-report?studentId=${selected.id}`}
+                  target="_blank"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all"
+                >
+                  <BarChart2 className="w-3.5 h-3.5" /> View Report
+                </a>
+                <button
+                  onClick={() => handleSendToParent(selected)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all"
+                >
+                  <Send className="w-3.5 h-3.5" /> Send to Parent
+                </button>
               </div>
 
               {/* ── Subjects & Labs Editor ── */}
@@ -425,6 +474,51 @@ export default function FacultyStudentsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Send to Parent Modal ── */}
+      {sendParentModal && sendParentStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+            <h3 className="text-base font-bold text-slate-900">Send Report to Parent</h3>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">Student:</span><span className="font-medium text-slate-900">{sendParentStudent.name}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Roll:</span><span className="font-medium text-slate-900">{sendParentStudent.rollNumber || '—'}</span></div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-2">Channel</label>
+              <div className="flex gap-2">
+                <button onClick={() => setSendParentChannel('whatsapp')}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${sendParentChannel === 'whatsapp' ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  📱 WhatsApp
+                </button>
+                <button onClick={() => setSendParentChannel('sms')}
+                  className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${sendParentChannel === 'sms' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                  💬 SMS
+                </button>
+              </div>
+            </div>
+
+            {sendParentResult && (
+              <div className={`p-3 rounded-lg text-sm ${sendParentResult.success ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                {sendParentResult.success ? '✅' : '❌'} {sendParentResult.message}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={handleConfirmSendToParent} disabled={sendParentLoading}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 transition-all">
+                {sendParentLoading ? 'Sending...' : 'Send Report'}
+              </button>
+              <button onClick={() => setSendParentModal(false)}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-all">
+                Cancel
+              </button>
             </div>
           </div>
         </div>

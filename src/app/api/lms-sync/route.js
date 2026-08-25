@@ -123,7 +123,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, synced, count: synced.length });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Sync failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -146,6 +146,6 @@ export async function GET() {
       })),
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

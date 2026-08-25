@@ -10,10 +10,12 @@ import {
   XCircle,
   Award,
   ArrowRight,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 import Badge from '@/components/shared/Badge';
 import Modal from '@/components/shared/Modal';
 import LoadingState from '@/components/shared/LoadingState';
@@ -58,6 +60,8 @@ export default function StudentQuizzesPage() {
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [explanations, setExplanations] = useState<Record<number, string>>({});
+  const [explainingIdx, setExplainingIdx] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadQuizzes() {
@@ -156,6 +160,37 @@ export default function StudentQuizzesPage() {
     }
   };
 
+  const handleExplainWrong = async (idx: number) => {
+    if (!quizResult || !selectedQuiz || explainingIdx !== null) return;
+    setExplainingIdx(idx);
+    const item = quizResult.breakdown[idx];
+    const question = selectedQuiz.questions[idx];
+    const correctOption = question.options[item.correctAnswer];
+    const selectedOption = item.selectedAnswer >= 0 ? question.options[item.selectedAnswer] : 'No answer';
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{
+            role: 'user',
+            content: `In a quiz on ${item.topic}, I was asked: "${item.question}"\n\nI chose: "${selectedOption}"\nThe correct answer was: "${correctOption}"\n\nExplain why my answer was wrong in 2-3 sentences. Be specific about the misconception. Then give me the key rule to remember.`,
+          }],
+          currentTopic: item.topic,
+        }),
+      });
+      const data = await res.json();
+      if (data.reply) {
+        setExplanations(prev => ({ ...prev, [idx]: data.reply }));
+      }
+    } catch {
+      setExplanations(prev => ({ ...prev, [idx]: 'Unable to generate explanation. Please try again.' }));
+    } finally {
+      setExplainingIdx(null);
+    }
+  };
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
@@ -163,11 +198,11 @@ export default function StudentQuizzesPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="Practice & Diagnostic Assessments" roleBadge="STUDENT" />
+        <StudentTopbar title="Quizzes" subtitle="Practice & diagnostic assessments" />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
           {/* Header */}
@@ -422,10 +457,10 @@ export default function StudentQuizzesPage() {
                   </div>
                 </div>
 
-                {/* Question Breakdown */}
+                {/* Question Breakdown with AI Explanations */}
                 <div className="study-card p-6 space-y-4">
                   <h3 className="text-base font-bold text-slate-900">Question Verification Breakdown</h3>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {quizResult.breakdown.map((item, idx) => (
                       <div
                         key={idx}
@@ -449,9 +484,56 @@ export default function StudentQuizzesPage() {
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-500">
+                        <p className="text-[11px] text-slate-500 mb-2">
                           Topic: <span className="text-slate-700 font-medium">{item.topic}</span>
                         </p>
+
+                        {/* Show correct answer for wrong answers */}
+                        {!item.isCorrect && selectedQuiz && (
+                          <div className="mb-2 p-2.5 rounded-lg bg-white/80 border border-rose-200/50">
+                            <p className="text-[11px] text-rose-700">
+                              <span className="font-bold">Correct answer:</span> {selectedQuiz.questions[idx].options[item.correctAnswer]}
+                            </p>
+                            <p className="text-[11px] text-rose-600/70 mt-0.5">
+                              <span className="font-bold">Your answer:</span> {item.selectedAnswer >= 0 ? selectedQuiz.questions[idx].options[item.selectedAnswer] : 'No answer'}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Why Did I Get This Wrong? button */}
+                        {!item.isCorrect && (
+                          <div>
+                            {explanations[idx] ? (
+                              <div className="p-3 rounded-lg bg-white/80 border border-indigo-200/50">
+                                <div className="flex items-center gap-1.5 mb-1.5">
+                                  <Sparkles className="w-3 h-3 text-indigo-600" />
+                                  <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">AI Explanation</span>
+                                </div>
+                                <div className="text-[11px] text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                  {explanations[idx].split(/(\*\*[^*]+\*\*)/).map((part, pi) =>
+                                    part.startsWith('**') && part.endsWith('**')
+                                      ? <strong key={pi}>{part.slice(2, -2)}</strong>
+                                      : <React.Fragment key={pi}>{part}</React.Fragment>
+                                  )}
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleExplainWrong(idx)}
+                                disabled={explainingIdx !== null}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all
+                                  bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 hover:border-indigo-300
+                                  disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {explainingIdx === idx ? (
+                                  <><Loader2 className="w-3 h-3 animate-spin" /> Explaining...</>
+                                ) : (
+                                  <><Sparkles className="w-3 h-3" /> Why did I get this wrong?</>
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

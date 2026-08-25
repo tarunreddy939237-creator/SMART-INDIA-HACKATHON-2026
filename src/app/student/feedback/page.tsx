@@ -6,8 +6,8 @@ import {
   MessageSquare, Star, ShieldCheck, Send, CheckCircle2, Lock,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 
 interface SubjectOption {
   label: string;
@@ -73,10 +73,10 @@ export default function StudentFeedbackPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="Course & Faculty Feedback" roleBadge="STUDENT" />
+        <StudentTopbar title="Feedback" subtitle="Course & faculty feedback" />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-3xl space-y-6 overflow-y-auto">
 
           <div className="pb-2 border-b border-slate-200">

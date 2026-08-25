@@ -9,7 +9,8 @@ import { geminiGenerate, geminiAvailable } from '@/lib/gemini.js';
 export async function GET(request) {
   try {
     const session     = await getServerSession(authOptions);
-    const studentId   = session?.user?.id   || '64f1a2b3c4d5e6f7a8b9c001';
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const studentId   = session?.user?.id;
     const studentName = session?.user?.name || 'Aarav Sharma';
 
     const { searchParams } = new URL(request.url);
@@ -18,7 +19,7 @@ export async function GET(request) {
     const s360 = await getStudent360(studentId);
 
     const targetWeakTopics = s360?.quizSummary?.weakTopics?.length
-      ? s360.quizSummary.weakTopics
+      ? s360.quizSummary.weakTopics.slice(0, 3) // max 3 topics to keep prompt small
       : [
           { topic: 'MOSFET Biasing & Small-Signal Models', missedCount: 2 },
           { topic: 'Propagation Delay in CMOS Logic',      missedCount: 1 },
@@ -26,30 +27,20 @@ export async function GET(request) {
         ];
 
     const riskContext = s360?.score
-      ? { riskTier: s360.score.riskTier, riskFactors: s360.score.riskFactors, successScore: s360.score.successScore }
+      ? { riskTier: s360.score.riskTier, riskFactors: (s360.score.riskFactors || []).slice(0, 3), successScore: s360.score.successScore }
       : null;
 
-    const planPrompt = `You are an elite academic AI tutor. A student has the following verified diagnostic data:
-${selectedSubject ? `Selected subject to focus on: ${selectedSubject}.` : ''}
-Weak topics: ${JSON.stringify(targetWeakTopics)}.
-${riskContext ? `Risk level: ${riskContext.riskTier} (score ${riskContext.successScore}/100). Risk factors: ${riskContext.riskFactors.join('; ')}.` : ''}
-Generate a structured 3-day adaptive mastery study plan${selectedSubject ? ` focused entirely on the subject: ${selectedSubject}` : ''} formatted as STRICT JSON.
-IMPORTANT: Output ONLY raw JSON — no markdown fences, no LaTeX, no backslashes in string values.
-{
-  "summary": "Short 2-sentence diagnostic assessment",
-  "focusAreas": ["topic 1", "topic 2"],
-  "days": [
-    {
-      "day": 1,
-      "title": "Topic Mastery Title",
-      "duration": "45 mins",
-      "concepts": ["Concept A", "Concept B"],
-      "actionItems": ["Action 1", "Action 2"],
-      "recommendedResource": "Resource description"
-    }
-  ],
-  "estimatedScoreBoost": "+14%"
-}`;
+    // Compact weak topics for the prompt (topic names only, no full objects)
+    const weakTopicNames = targetWeakTopics.map(w => w.topic).join(', ');
+    const riskLine = riskContext
+      ? `Risk: ${riskContext.riskTier} (score ${riskContext.successScore}/100). Factors: ${riskContext.riskFactors.join('; ')}.`
+      : '';
+
+    const planPrompt = `You are an academic AI tutor. Generate a 3-day study plan as STRICT JSON only (no markdown, no LaTeX).
+${selectedSubject ? `Focus subject: ${selectedSubject}.` : ''}Weak topics: ${weakTopicNames}. ${riskLine}
+JSON schema:
+{"summary":"2-sentence assessment","focusAreas":["topic1","topic2"],"days":[{"day":1,"title":"Title","duration":"45 mins","concepts":["A","B"],"actionItems":["Action1"],"recommendedResource":"Resource"}],"estimatedScoreBoost":"+14%"}`;
+
 
     // ── 1. Try Gemini ──────────────────────────────────────────────────────────
     if (geminiAvailable()) {
@@ -96,7 +87,7 @@ IMPORTANT: Output ONLY raw JSON — no markdown fences, no LaTeX, no backslashes
     persistPlan(studentId, targetWeakTopics, riskContext, plan, 'deterministic-intelligence').catch(() => {});
     return NextResponse.json({ success: true, source: 'deterministic-intelligence', plan, weakTopics: targetWeakTopics, riskContext });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Internal error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 

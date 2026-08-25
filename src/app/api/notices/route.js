@@ -6,9 +6,10 @@ import { createNotice, getNoticesForStudent, getNoticesByFaculty } from '@/lib/q
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { searchParams } = new URL(request.url);
-    const role      = session?.user?.role || 'student';
-    const userId    = session?.user?.id   || '64f1a2b3c4d5e6f7a8b9c001';
+    const role      = session?.user?.role;
+    const userId    = session?.user?.id;
     const studentId = searchParams.get('studentId');
 
     if (role === 'faculty' || role === 'admin') {
@@ -24,14 +25,14 @@ export async function GET(request) {
     const notices = await getNoticesForStudent(userId);
     return NextResponse.json({ notices });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
     const session  = await getServerSession(authOptions);
-    const userRole = session?.user?.role || 'faculty';
+    const userRole = session?.user?.role;
     if (userRole !== 'faculty' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -40,10 +41,10 @@ export async function POST(request) {
     if (!studentId || !subject || !message) {
       return NextResponse.json({ error: 'studentId, subject and message are required' }, { status: 400 });
     }
-    const facultyId = session?.user?.id || '64f1a2b3c4d5e6f7a8b9c004';
+    const facultyId = session?.user?.id;
     const notice = await createNotice({ studentId, facultyId, type, subject, message });
     return NextResponse.json({ success: true, notice });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

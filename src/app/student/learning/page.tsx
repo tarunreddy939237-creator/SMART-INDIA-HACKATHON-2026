@@ -16,10 +16,16 @@ import {
   GraduationCap,
   Lightbulb,
   AlertCircle,
+  Sparkles,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  Loader2,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 import LoadingState from '@/components/shared/LoadingState';
 
 interface StudyPlanDay {
@@ -59,6 +65,133 @@ export default function StudentLearningPage() {
   const [isTyping, setIsTyping] = useState(false);
   const [chatError, setChatError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Voice AI state ──
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceState, setVoiceState] = useState<'idle' | 'listening' | 'processing' | 'speaking' | 'error'>('idle');
+  const [voiceStatusText, setVoiceStatusText] = useState('');
+  const recognitionRef = useRef<any>(null);
+  const synthRef = useRef<SpeechSynthesis | null>(null);
+  const [ttsSupported, setTtsSupported] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+
+  // Initialize voice support
+  useEffect(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        setInput(transcript);
+        if (event.results[0]?.isFinal) {
+          setVoiceState('idle');
+          setVoiceStatusText('');
+          // Auto-send after final result
+          setTimeout(() => {
+            setInput(prev => { if (prev.trim()) handleSendMessage(prev); return prev; });
+          }, 300);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('[voice] Recognition error:', event.error);
+        setVoiceState('idle');
+        setVoiceStatusText('');
+        if (event.error === 'not-allowed') {
+          setChatError('Microphone access denied. Please allow microphone permissions.');
+        } else if (event.error !== 'aborted') {
+          setChatError('Voice input error. Please try again or use text input.');
+        }
+      };
+
+      recognition.onend = () => {
+        if (voiceState === 'listening') {
+          setVoiceState('idle');
+          setVoiceStatusText('');
+        }
+      };
+
+      recognitionRef.current = recognition;
+    }
+
+    if (window.speechSynthesis) {
+      setTtsSupported(true);
+      synthRef.current = window.speechSynthesis;
+    }
+  }, []);
+
+  const startListening = () => {
+    if (!recognitionRef.current) return;
+    try {
+      setInput('');
+      setVoiceState('listening');
+      setVoiceStatusText('Listening...');
+      setChatError('');
+      recognitionRef.current.start();
+    } catch (err) {
+      console.warn('[voice] Start error:', err);
+      setVoiceState('idle');
+    }
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+    setVoiceState('idle');
+    setVoiceStatusText('');
+  };
+
+  const speakText = (text: string, msgId?: string) => {
+    if (!synthRef.current) return;
+    synthRef.current.cancel();
+    // Strip markdown, code fences, HTML, and special characters for natural speech
+    const cleanText = text
+      .replace(/```[\s\S]*?```/g, ' ') // Remove code fences
+      .replace(/`[^`]+`/g, ' ') // Remove inline code
+      .replace(/#{1,6}\s/g, '') // Remove heading markers
+      .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold markers
+      .replace(/\*([^*]+)\*/g, '$1') // Remove italic markers
+      .replace(/\$[^$]+\$/g, '') // Remove math
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Convert [text](url) to just text
+      .replace(/[-*+]\s/g, '') // Remove list bullets
+      .replace(/\n+/g, '. ') // Newlines to pauses
+      .trim();
+    const utterance = new SpeechSynthesisUtterance(cleanText.slice(0, 800));
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    utterance.onstart = () => {
+      setVoiceState('speaking');
+      setVoiceStatusText('Speaking...');
+      if (msgId) setSpeakingMsgId(msgId);
+    };
+    utterance.onend = () => {
+      setVoiceState('idle');
+      setVoiceStatusText('');
+      setSpeakingMsgId(null);
+    };
+    utterance.onerror = () => {
+      setVoiceState('idle');
+      setVoiceStatusText('');
+      setSpeakingMsgId(null);
+    };
+    synthRef.current.speak(utterance);
+  };
+
+  const stopSpeaking = () => {
+    if (synthRef.current) synthRef.current.cancel();
+    setVoiceState('idle');
+    setVoiceStatusText('');
+    setSpeakingMsgId(null);
+  };
 
   const quickPrompts = [
     'Explain Enhancement MOSFET channel inversion',
@@ -127,7 +260,7 @@ export default function StudentLearningPage() {
   }, [messages, isTyping]);
 
   const handleSendMessage = async (customMessage?: string) => {
-    const textToSend = customMessage || input;
+    const textToSend = (typeof customMessage === 'string' ? customMessage : input) || input;
     if (!textToSend.trim() || isTyping) return;
 
     const userMsg: ChatMessage = {
@@ -190,12 +323,66 @@ export default function StudentLearningPage() {
     ]);
   };
 
+  const handleSimplify = async () => {
+    if (isTyping) return;
+    // Find the last assistant message to use as context
+    const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant');
+    if (!lastAssistantMsg) return;
+
+    const simplifyPrompt = 'Please explain the above in simpler terms.';
+    const userMsg: ChatMessage = {
+      id: Date.now().toString(),
+      role: 'user',
+      content: simplifyPrompt,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+    setIsTyping(true);
+    setChatError('');
+
+    try {
+      const payloadMessages = [...messages, userMsg].map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: payloadMessages,
+          currentTopic: selectedSubject || weakTopics[0]?.topic || 'General',
+          simplify: true,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: data.reply,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      } else if (data.error) {
+        setChatError(data.error);
+      }
+    } catch {
+      setChatError('Network error. Please try again.');
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="AI Adaptive Learning & Tutor" roleBadge="STUDENT" />
+        <StudentTopbar title="AI Study Copilot" subtitle="Personalized AI-powered learning" />
 
         <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -393,6 +580,50 @@ export default function StudentLearningPage() {
                           </span>
                         </div>
 
+                      {/* Explain Simpler + Speaker buttons — on every assistant message, hidden while typing */}
+                      {msg.role === 'assistant' && !isTyping && (
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          {/* Explain Simpler — only on the last assistant message */}
+                          {messages[messages.length - 1]?.id === msg.id && (
+                            <button
+                              onClick={handleSimplify}
+                              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all
+                                bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700
+                                border border-indigo-200 hover:border-indigo-300"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              Explain simpler
+                            </button>
+                          )}
+                          {/* Read Aloud / Stop — on every assistant message */}
+                          {ttsSupported && (
+                            speakingMsgId === msg.id ? (
+                              <button
+                                onClick={stopSpeaking}
+                                aria-label="Stop speaking"
+                                title="Stop speaking"
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all
+                                  bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-700
+                                  border border-rose-200 hover:border-rose-300"
+                              >
+                                <VolumeX className="w-3 h-3" /> Stop
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => speakText(msg.content, msg.id)}
+                                aria-label="Read aloud"
+                                title="Read aloud"
+                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all
+                                  bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700
+                                  border border-emerald-200 hover:border-emerald-300"
+                              >
+                                <Volume2 className="w-3 h-3" /> Read Aloud
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
+
                       {msg.role === 'user' && (
                         <div className="w-7 h-7 rounded-lg bg-slate-200 border border-slate-300 text-slate-700 flex items-center justify-center shrink-0 mt-1">
                           <User className="w-3.5 h-3.5" />
@@ -422,6 +653,21 @@ export default function StudentLearningPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* Voice Status */}
+                {voiceState !== 'idle' && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                    style={{
+                      background: voiceState === 'listening' ? 'rgba(255,77,94,0.06)' : voiceState === 'speaking' ? 'rgba(28,222,200,0.06)' : 'rgba(91,82,255,0.06)',
+                      border: `1px solid ${voiceState === 'listening' ? 'rgba(255,77,94,0.2)' : voiceState === 'speaking' ? 'rgba(79,70,229,0.15)' : 'rgba(79,70,229,0.15)'}`,
+                      color: voiceState === 'listening' ? '#FF4D5E' : voiceState === 'speaking' ? '#1CDEC8' : '#5B52FF',
+                    }}>
+                    {voiceState === 'listening' && <><Mic className="w-3.5 h-3.5 animate-pulse" /> {voiceStatusText}</>}
+                    {voiceState === 'speaking' && <><Volume2 className="w-3.5 h-3.5 animate-pulse" /> {voiceStatusText}</>}
+                    {voiceState === 'processing' && <><Loader2 className="w-3.5 h-3.5 animate-spin" /> {voiceStatusText}</>}
+                    {voiceState === 'error' && <><MicOff className="w-3.5 h-3.5" /> {voiceStatusText}</>}
+                  </div>
+                )}
+
                 {/* Input Form */}
                 <form
                   onSubmit={(e) => {
@@ -430,13 +676,34 @@ export default function StudentLearningPage() {
                   }}
                   className="pt-3 border-t border-slate-100 shrink-0 flex items-center gap-2"
                 >
+                  {/* Microphone button */}
+                  {voiceSupported ? (
+                    <button
+                      type="button"
+                      onClick={voiceState === 'listening' ? stopListening : startListening}
+                      disabled={isTyping || voiceState === 'speaking'}
+                      className="p-2.5 rounded-xl transition-all shrink-0 disabled:opacity-40"
+                      style={{
+                        background: voiceState === 'listening' ? 'rgba(255,77,94,0.1)' : 'rgba(91,82,255,0.06)',
+                        border: `1px solid ${voiceState === 'listening' ? 'rgba(255,77,94,0.3)' : 'rgba(91,82,255,0.15)'}`,
+                        color: voiceState === 'listening' ? '#FF4D5E' : '#5B52FF',
+                      }}
+                      title={voiceState === 'listening' ? 'Stop listening' : 'Ask by voice'}
+                    >
+                      {voiceState === 'listening' ? <MicOff className="w-4 h-4 animate-pulse" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  ) : (
+                    <div className="text-[9px] text-slate-400 px-1 hidden sm:block">Voice N/A</div>
+                  )}
+
                   <input
                     type="text"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Ask AI tutor any question about your coursework..."
+                    placeholder={voiceState === 'listening' ? 'Listening...' : 'Ask AI tutor any question about your coursework...'}
                     className="flex-1 bg-white border border-slate-300 focus:border-indigo-500 rounded-xl px-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 outline-none transition-colors"
                   />
+
                   <button
                     type="submit"
                     disabled={!input.trim() || isTyping}

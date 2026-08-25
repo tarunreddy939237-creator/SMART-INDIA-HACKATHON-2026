@@ -27,7 +27,7 @@ export default function ProgressRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#E2E8F0"
+          stroke="var(--ev-border)"
           strokeWidth={strokeWidth}
           fill="transparent"
         />
@@ -45,8 +45,8 @@ export default function ProgressRing({
         />
       </svg>
       <div className="absolute flex flex-col items-center justify-center text-center">
-        <span className="text-xl font-bold text-slate-800 font-mono">{clamped}%</span>
-        {label && <span className="text-[10px] text-slate-500 font-medium -mt-0.5">{label}</span>}
+        <span className="text-[18px] font-bold font-mono text-[var(--ev-text)]">{clamped}%</span>
+        {label && <span className="text-[10px] text-[var(--ev-text-tertiary)] font-medium -mt-0.5">{label}</span>}
       </div>
     </div>
   );

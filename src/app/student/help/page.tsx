@@ -6,8 +6,8 @@ import {
   ScanFace, MessageSquare, Flame, BarChart2, ChevronDown,
   ChevronRight, LifeBuoy, CheckCircle2, AlertCircle, Globe,
 } from 'lucide-react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 import { useLang } from '@/lib/i18n';
 
 interface Section {
@@ -198,10 +198,10 @@ export default function StudentHelpPage() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#F7F8FA] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title={h.title} roleBadge="STUDENT" />
+        <StudentTopbar title={h.title} subtitle="Help & documentation" />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto max-w-4xl">
 
           {/* Header */}

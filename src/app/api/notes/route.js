@@ -6,6 +6,7 @@ import { getNotes, createNote, deleteNote } from '@/lib/queries.js';
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const role = session?.user?.role;
     const { searchParams } = new URL(request.url);
     const subject = searchParams.get('subject') || undefined;
@@ -26,7 +27,7 @@ export async function GET(request) {
 
     return NextResponse.json({ notes: [] }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch notes' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -50,7 +51,7 @@ export async function POST(request) {
     const note = await createNote({ title, content, subject, branch, section, type, resourceUrl, uploadedBy });
     return NextResponse.json({ success: true, note });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to save note' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -67,6 +68,6 @@ export async function DELETE(request) {
     await deleteNote(noteId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to delete note' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

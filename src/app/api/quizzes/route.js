@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import authOptions from '@/lib/auth.js';
 import { getQuizzes, getQuizById, createQuiz, deleteQuiz, submitQuizAttempt, getQuizAttemptsByStudent } from '@/lib/queries.js';
 import { matchesStudentAudience } from '@/lib/contentTargeting.js';
+import { onQuizResult } from '@/lib/notificationEngine.js';
 
 export async function GET(request) {
   try {
@@ -54,7 +55,7 @@ export async function GET(request) {
 
     return NextResponse.json({ quizzes: [] }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch quizzes' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -78,6 +79,16 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Quiz not available for your section' }, { status: 403 });
       }
       const result = await submitQuizAttempt({ quizId, studentId: session.user.id, selectedAnswers });
+
+      // Generate quiz result notification
+      try {
+        if (result && result.score !== undefined) {
+          await onQuizResult(session.user.id, quiz, result.score, result.weakTopics || []);
+        }
+      } catch (notifErr) {
+        console.warn('[quizzes] Notification generation failed:', notifErr.message);
+      }
+
       return NextResponse.json({ success: true, result });
     }
 
@@ -108,7 +119,7 @@ export async function POST(request) {
 
     return NextResponse.json({ error: 'Unknown action specified' }, { status: 400 });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -132,6 +143,6 @@ export async function DELETE(request) {
     await deleteQuiz(quizId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to delete quiz' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

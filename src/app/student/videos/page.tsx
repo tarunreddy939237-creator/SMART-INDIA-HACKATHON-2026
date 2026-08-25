@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { PlayCircle, Clock, BookOpen, Search, Filter, Video } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 import LoadingState from '@/components/shared/LoadingState';
 
 interface VideoLecture {
@@ -47,11 +47,11 @@ export default function StudentVideosPage() {
   });
 
   return (
-    <div className="flex min-h-screen bg-[#F8FAFC] text-slate-900">
-      <Sidebar role="student" />
+    <div className="flex min-h-screen bg-[#F4F6FA] text-slate-900">
+      <StudentSidebar />
 
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="Video Lectures" roleBadge="STUDENT" />
+        <StudentTopbar title="Video Lectures" subtitle="Faculty-published lectures" />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
 

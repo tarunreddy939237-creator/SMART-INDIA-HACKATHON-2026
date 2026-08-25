@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   GraduationCap, Users, ShieldCheck, User, Mail, Lock,
   Eye, EyeOff, ArrowRight, CheckCircle2, AlertCircle,
-  BookOpen, KeyRound, RefreshCw, Send,
+  BookOpen, KeyRound, RefreshCw, Send, Building2,
+  BadgeCheck, Clock,
 } from 'lucide-react';
 
 function Orb({ className }: { className: string }) {
@@ -25,18 +26,21 @@ type Step = 'details' | 'otp' | 'done';
 export default function RegisterPage() {
   const router = useRouter();
 
-  // Step
   const [step, setStep] = useState<Step>('details');
 
   // Form fields
-  const [role, setRole]                   = useState('student');
-  const [name, setName]                   = useState('');
-  const [email, setEmail]                 = useState('');
-  const [password, setPassword]           = useState('');
+  const [role, setRole]                     = useState('student');
+  const [name, setName]                     = useState('');
+  const [email, setEmail]                   = useState('');
+  const [password, setPassword]             = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [classOrSubject, setClassOrSubject] = useState('CSE-A');
-  const [showPw, setShowPw]               = useState(false);
-  const [showCpw, setShowCpw]             = useState(false);
+  const [rollNumber, setRollNumber]         = useState('');
+  const [yearOfStudy, setYearOfStudy]       = useState('1');
+  const [facultyId, setFacultyId]           = useState('');
+  const [collegeName, setCollegeName]       = useState('');
+  const [showPw, setShowPw]                 = useState(false);
+  const [showCpw, setShowCpw]               = useState(false);
 
   // OTP
   const [otpDigits, setOtpDigits]         = useState(['', '', '', '', '', '']);
@@ -52,11 +56,10 @@ export default function RegisterPage() {
   // UI state
   const [loading, setLoading]             = useState(false);
   const [error, setError]                 = useState('');
-  const [otpPreview, setOtpPreview]       = useState(''); // dev console fallback
+  const [otpPreview, setOtpPreview]       = useState('');
 
   const currentRole = ROLES.find(r => r.id === role)!;
 
-  // Cooldown timer
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const t = setTimeout(() => setResendCooldown(c => c - 1), 1000);
@@ -75,9 +78,19 @@ export default function RegisterPage() {
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!name.trim())                        { setError('Full name is required.'); return; }
-    if (password.length < 6)                 { setError('Password must be at least 6 characters.'); return; }
-    if (password !== confirmPassword)        { setError('Passwords do not match.'); return; }
+    if (!collegeName.trim())                { setError('College name is required.'); return; }
+    if (!name.trim())                       { setError('Full name is required.'); return; }
+    if (password.length < 6)                { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirmPassword)       { setError('Passwords do not match.'); return; }
+    if (role === 'student') {
+      if (!rollNumber.trim())               { setError('Roll number is required.'); return; }
+      if (rollNumber.trim().length > 30)    { setError('Roll number is too long.'); return; }
+      const yr = parseInt(yearOfStudy);
+      if (yr < 1 || yr > 4)                 { setError('Please select your year of study.'); return; }
+    }
+    if (role === 'faculty') {
+      if (!facultyId.trim())                { setError('Faculty ID is required.'); return; }
+    }
 
     setLoading(true);
     try {
@@ -87,19 +100,19 @@ export default function RegisterPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Failed to send OTP.'); return; }
-      if (data.preview) setOtpPreview(data.preview); // dev console fallback
+      if (data.preview) setOtpPreview(data.preview);
       setStep('otp');
       setResendCooldown(60);
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
   };
 
-  // OTP input handling
   const handleOtpChange = (i: number, val: string) => {
     const digit = val.replace(/\D/g, '').slice(-1);
     const next  = [...otpDigits];
     next[i]     = digit;
     setOtpDigits(next);
+    if (error) setError(''); // Clear stale errors when user types
     if (digit && i < 5) otpRefs[i + 1].current?.focus();
   };
   const handleOtpKeyDown = (i: number, e: React.KeyboardEvent) => {
@@ -124,20 +137,24 @@ export default function RegisterPage() {
     try {
       const res  = await fetch('/api/otp/verify', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), otp, purpose: 'register', name: name.trim(), password, role, classOrSubject }),
+        body: JSON.stringify({
+          email: email.trim(), otp, purpose: 'register',
+          name: name.trim(), password, role, classOrSubject,
+          rollNumber: rollNumber.trim(), yearOfStudy: parseInt(yearOfStudy) || 1,
+          facultyId: facultyId.trim(), collegeName: collegeName.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Verification failed.'); return; }
       setStep('done');
-      setTimeout(() => router.push('/login'), 2500);
+      setTimeout(() => router.push('/login'), 4000);
     } catch { setError('Network error. Please try again.'); }
     finally { setLoading(false); }
   };
 
-  // Resend OTP
   const handleResend = async () => {
     if (resendCooldown > 0) return;
-    setError(''); setOtpDigits(['', '', '', '', '', '']);
+    setError(''); setOtpDigits(['','','','','','']);
     setLoading(true);
     try {
       const res  = await fetch('/api/otp/send', {
@@ -152,16 +169,80 @@ export default function RegisterPage() {
     finally { setLoading(false); }
   };
 
-  // ── Done screen ──────────────────────────────────────────────────────────
+  // ── Done screen — 3-step registration status ─────────────────────────────
   if (step === 'done') return (
     <div className="min-h-screen school-bg flex items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-4 max-w-sm">
-        <div className="w-16 h-16 rounded-3xl bg-emerald-50 border-2 border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
-          <CheckCircle2 className="w-8 h-8" />
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+        {/* Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-lg p-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 rounded-3xl bg-indigo-50 border-2 border-indigo-200 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-8 h-8" />
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">Registration Submitted</h2>
+            <p className="text-sm text-slate-500 mt-1">Your email has been verified successfully.</p>
+          </div>
+
+          {/* 3-step status timeline */}
+          <div className="space-y-0">
+            {/* Step 1: Registration Submitted — DONE */}
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-500 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="w-0.5 flex-1 bg-emerald-300 my-1" />
+              </div>
+              <div className="pb-4">
+                <p className="text-sm font-bold text-emerald-700">Registration Submitted ✓</p>
+                <p className="text-xs text-slate-500 mt-0.5">Your details have been received</p>
+              </div>
+            </div>
+
+            {/* Step 2: Email Verified — DONE */}
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 border-2 border-emerald-500 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                </div>
+                <div className="w-0.5 flex-1 bg-amber-300 my-1" />
+              </div>
+              <div className="pb-4">
+                <p className="text-sm font-bold text-emerald-700">Email Verified ✓</p>
+                <p className="text-xs text-slate-500 mt-0.5">OTP verification completed</p>
+              </div>
+            </div>
+
+            {/* Step 3: Admin Approval — PENDING */}
+            <div className="flex gap-3">
+              <div className="flex flex-col items-center">
+                <div className="w-8 h-8 rounded-full bg-amber-100 border-2 border-amber-400 flex items-center justify-center shrink-0 animate-pulse">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                </div>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-amber-700">Admin Approval Pending ⏳</p>
+                <p className="text-xs text-slate-500 mt-0.5">Waiting for administrator review</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Info box */}
+          <div className="mt-6 bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-600 space-y-1.5">
+            <p className="font-semibold text-slate-700">What happens next?</p>
+            <ul className="list-disc list-inside space-y-1 text-slate-500">
+              <li>Your administrator will review your registration</li>
+              <li>You'll receive an email once your account is approved</li>
+              <li>You can then sign in with your email and password</li>
+            </ul>
+          </div>
+
+          {/* CTA */}
+          <Link href="/login" className="mt-6 block w-full text-center py-3 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors">
+            Go to Sign In
+          </Link>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900">Account Created!</h2>
-        <p className="text-sm text-slate-600">Welcome to <strong className="text-indigo-600">EduVision</strong>! Redirecting to Sign In…</p>
-        <div className="w-8 h-1 bg-indigo-200 rounded-full mx-auto animate-pulse" />
       </motion.div>
     </div>
   );
@@ -235,6 +316,19 @@ export default function RegisterPage() {
           {/* ── STEP 1: Details ── */}
           {step === 'details' && (
             <form onSubmit={handleSendOTP} className="space-y-5">
+
+              {/* College Name — FIRST field, always required */}
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">College / Institution Name</label>
+                <div className="relative">
+                  <Building2 className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                  <input type="text" required value={collegeName} onChange={e => setCollegeName(e.target.value)}
+                    placeholder="e.g. Vasireddy Venkatadri Institute of Technology"
+                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-10 py-3 text-sm outline-none" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Your college will be auto-detected. Variations like "VVIT" match the same institution.</p>
+              </div>
+
               {/* Role selector */}
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2 block">I am a…</label>
@@ -267,12 +361,13 @@ export default function RegisterPage() {
 
               {/* Email */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-2">Email Address</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-2">Personal Email Address</label>
                 <div className="relative">
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@college.edu"
+                  <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@email.com"
                     className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-10 py-3 text-sm outline-none" />
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">Personal emails are accepted. Your college identity is verified separately.</p>
               </div>
 
               {/* Class/Subject */}
@@ -284,6 +379,38 @@ export default function RegisterPage() {
                     className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-10 py-3 text-sm outline-none" />
                 </div>
               </div>
+
+              {/* Roll Number + Year — Student only */}
+              {role === 'student' && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Roll Number</label>
+                    <input type="text" required value={rollNumber} onChange={e => setRollNumber(e.target.value)}
+                      placeholder="e.g. 21CSE001"
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-4 py-3 text-sm outline-none" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-2">Year of Study</label>
+                    <select required value={yearOfStudy} onChange={e => setYearOfStudy(e.target.value)}
+                      className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-4 py-3 text-sm outline-none">
+                      <option value="1">1st Year</option>
+                      <option value="2">2nd Year</option>
+                      <option value="3">3rd Year</option>
+                      <option value="4">4th Year</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Faculty ID — Faculty only */}
+              {role === 'faculty' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-2">Faculty ID / Employee ID</label>
+                  <input type="text" required value={facultyId} onChange={e => setFacultyId(e.target.value)}
+                    placeholder="e.g. FAC-2024-001"
+                    className="w-full bg-white border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl px-4 py-3 text-sm outline-none" />
+                </div>
+              )}
 
               {/* Password */}
               <div>
@@ -341,7 +468,6 @@ export default function RegisterPage() {
                 <p className="text-xs text-slate-500">Sent to <strong className="text-slate-700">{email}</strong></p>
               </div>
 
-              {/* OTP boxes */}
               <div className="flex items-center justify-center gap-2" onPaste={handleOtpPaste}>
                 {otpDigits.map((d, i) => (
                   <input
@@ -362,7 +488,7 @@ export default function RegisterPage() {
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 shadow-md shadow-indigo-200">
                 {loading
                   ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : <><CheckCircle2 className="w-4 h-4" /><span>Verify & Create Account</span></>
+                  : <><CheckCircle2 className="w-4 h-4" /><span>Verify & Submit Registration</span></>
                 }
               </motion.button>
 

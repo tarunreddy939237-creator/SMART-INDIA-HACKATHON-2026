@@ -29,17 +29,19 @@ export default function ConfirmDialog({
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="md">
       <div className="flex items-start gap-4 mb-6">
         <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          isDangerous ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-indigo-50 text-indigo-600 border border-indigo-200'
+          isDangerous
+            ? 'bg-[var(--ev-rose-soft)] text-[var(--ev-rose)] border border-[var(--ev-rose)]/20'
+            : 'bg-[var(--ev-indigo-soft)] text-[var(--ev-indigo)] border border-[var(--ev-indigo)]/20'
         }`}>
-          <AlertCircle className="w-5 h-5" />
+          <AlertCircle className="w-5 h-5" strokeWidth={1.5} />
         </div>
-        <p className="text-sm text-slate-600 pt-1 leading-relaxed">{message}</p>
+        <p className="text-[13px] text-[var(--ev-text-secondary)] pt-1 leading-relaxed">{message}</p>
       </div>
 
       <div className="flex items-center justify-end gap-3 pt-2">
         <button
           onClick={onClose}
-          className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+          className="px-4 py-2 rounded-lg bg-[var(--ev-surface-subtle)] hover:bg-[var(--ev-border)] text-[var(--ev-text-secondary)] text-[12px] font-semibold transition-colors duration-150"
         >
           {cancelText}
         </button>
@@ -48,10 +50,10 @@ export default function ConfirmDialog({
             onConfirm();
             onClose();
           }}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-sm ${
+          className={`px-4 py-2 rounded-lg text-[12px] font-semibold text-white transition-all duration-150 shadow-sm ${
             isDangerous
-              ? 'bg-rose-600 hover:bg-rose-700'
-              : 'bg-indigo-600 hover:bg-indigo-700'
+              ? 'bg-[var(--ev-rose)] hover:bg-[var(--ev-rose)]/90'
+              : 'bg-[var(--ev-indigo)] hover:bg-[var(--ev-indigo)]/90'
           }`}
         >
           {confirmText}

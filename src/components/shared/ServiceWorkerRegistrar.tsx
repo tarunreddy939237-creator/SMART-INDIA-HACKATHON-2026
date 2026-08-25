@@ -1,11 +1,11 @@
 'use client';
 import { useEffect } from 'react';
+import { registerServiceWorker, startAutoSync } from '@/lib/offlineCache';
 
 export default function ServiceWorkerRegistrar() {
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
+    registerServiceWorker();
+    startAutoSync();
   }, []);
   return null;
 }

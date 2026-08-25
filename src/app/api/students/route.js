@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import authOptions from '@/lib/auth.js';
 import connectToDatabase from '@/lib/mongodb.js';
 import User from '@/lib/models/User.js';
 import AttendanceRecord from '@/lib/models/AttendanceRecord.js';
@@ -8,6 +10,12 @@ import { DEMO_USERS } from '@/lib/seed-data.js';
 
 export async function PUT(request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (session.user.role !== 'faculty' && session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Faculty/Admin role required' }, { status: 403 });
+    }
+
     const { studentId, subjects, labs } = await request.json();
     if (!studentId) return NextResponse.json({ error: 'studentId required' }, { status: 400 });
     const db = await connectToDatabase();
@@ -28,9 +36,13 @@ export async function PUT(request) {
 }
 
 export async function GET(request) {
-  const { searchParams } = new URL(request.url);
-  const section   = searchParams.get('section')   || '';
-  const studentId = searchParams.get('studentId') || '';
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    const { searchParams } = new URL(request.url);
+    const section   = searchParams.get('section')   || '';
+    const studentId = searchParams.get('studentId') || '';
 
   const db = await connectToDatabase();
 
@@ -105,11 +117,14 @@ export async function GET(request) {
       return {
         id: sid, name: u.name, email: u.email,
         classOrSubject: u.classOrSubject,
+        rollNumber:  u.rollNumber  || '',
+        yearOfStudy: u.yearOfStudy || 0,
         subjects: u.subjects || [],
         labs:     u.labs     || [],
         attendancePct: stored.breakdown?.attendance ?? 0,
         avgQuizScore:  stored.breakdown?.academic   ?? 0,
         riskTier:      stored.riskTier      ?? 'Low',
+        riskScore:     stored.riskScore     ?? 0,
         successScore:  stored.successScore  ?? null,
       };
     }
@@ -128,18 +143,27 @@ export async function GET(request) {
       : 0;
 
     const riskTier = pct === 0 ? 'Low' : pct < 75 ? 'High' : pct < 85 ? 'Medium' : 'Low';
+    // Approximate riskScore from tier (0-100)
+    const riskScore = riskTier === 'High' ? 75 : riskTier === 'Medium' ? 45 : 15;
 
     return {
       id: sid, name: u.name, email: u.email,
       classOrSubject: u.classOrSubject,
+      rollNumber:  u.rollNumber  || '',
+      yearOfStudy: u.yearOfStudy || 0,
       subjects: u.subjects || [],
       labs:     u.labs     || [],
       attendancePct: pct,
       avgQuizScore:  avgQuiz,
       riskTier,
+      riskScore,
       successScore: null,
     };
   });
 
   return NextResponse.json({ students });
+  } catch (error) {
+    console.error('[students] GET error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }

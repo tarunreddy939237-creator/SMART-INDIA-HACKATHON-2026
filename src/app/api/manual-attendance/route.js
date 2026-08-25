@@ -6,8 +6,9 @@ import { saveManualAttendance, getManualAttendanceByFaculty, getManualAttendance
 export async function GET(request) {
   try {
     const session  = await getServerSession(authOptions);
-    const userRole = session?.user?.role || 'faculty';
-    const userId   = session?.user?.id   || '64f1a2b3c4d5e6f7a8b9c004';
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userRole = session.user.role;
+    const userId   = session.user.id;
     const { searchParams } = new URL(request.url);
     const section  = searchParams.get('section');
     const summary  = searchParams.get('summary');
@@ -27,14 +28,14 @@ export async function GET(request) {
     const sessions = await getManualAttendanceByFaculty(userId);
     return NextResponse.json({ sessions });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
     const session  = await getServerSession(authOptions);
-    const userRole = session?.user?.role || 'faculty';
+    const userRole = session?.user?.role;
     if (userRole !== 'faculty' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
@@ -43,10 +44,10 @@ export async function POST(request) {
     if (!section || !records?.length) {
       return NextResponse.json({ error: 'section and records are required' }, { status: 400 });
     }
-    const facultyId = session?.user?.id || '64f1a2b3c4d5e6f7a8b9c004';
+    const facultyId = session?.user?.id;
     const result = await saveManualAttendance({ facultyId, section, subject, date: date || new Date(), records });
     return NextResponse.json({ success: true, result });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

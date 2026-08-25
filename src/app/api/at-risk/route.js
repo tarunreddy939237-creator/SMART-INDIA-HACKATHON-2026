@@ -19,7 +19,8 @@ const DEMO_RISK = [
 export async function GET(request) {
   try {
     const session  = await getServerSession(authOptions);
-    const userRole = session?.user?.role || 'faculty';
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userRole = session.user.role;
 
     if (userRole !== 'faculty' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
@@ -72,6 +73,7 @@ export async function GET(request) {
           riskTier:       stored.riskTier,
           riskScore:      stored.riskScore,
           riskReasons:    stored.riskFactors,
+          structuredFactors: stored.structuredFactors ?? [],
           trend:          stored.trend,
           history:        stored.history ?? [],
           breakdown:      stored.breakdown,
@@ -118,6 +120,7 @@ export async function GET(request) {
         riskTier:       predicted.riskTier,
         riskScore:      predicted.riskScore,
         riskReasons:    predicted.riskReasons,
+        structuredFactors: predicted.factors ?? [],
         trend:          'stable',
         history:        [],
         breakdown:      null,
@@ -126,6 +129,6 @@ export async function GET(request) {
 
     return NextResponse.json({ students: results });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to compute risk' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

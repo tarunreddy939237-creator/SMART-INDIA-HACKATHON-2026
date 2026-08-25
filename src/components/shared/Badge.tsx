@@ -14,31 +14,31 @@ export default function Badge({
   dot = false,
 }: BadgeProps) {
   const variantStyles = {
-    cyan: 'bg-sky-50 text-sky-700 border-sky-200',
-    emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    amber: 'bg-amber-50 text-amber-700 border-amber-200',
-    red: 'bg-rose-50 text-rose-700 border-rose-200',
-    indigo: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-    slate: 'bg-slate-100 text-slate-700 border-slate-200',
+    cyan: 'bg-[var(--ev-sky-soft)] text-[var(--ev-sky)] border-[var(--ev-sky)]/20',
+    emerald: 'bg-[var(--ev-emerald-soft)] text-[var(--ev-emerald)] border-[var(--ev-emerald)]/20',
+    amber: 'bg-[var(--ev-amber-soft)] text-[var(--ev-amber)] border-[var(--ev-amber)]/20',
+    red: 'bg-[var(--ev-rose-soft)] text-[var(--ev-rose)] border-[var(--ev-rose)]/20',
+    indigo: 'bg-[var(--ev-indigo-soft)] text-[var(--ev-indigo)] border-[var(--ev-indigo)]/20',
+    slate: 'bg-[var(--ev-surface-subtle)] text-[var(--ev-text-secondary)] border-[var(--ev-border)]',
   };
 
   const dotColors = {
-    cyan: 'bg-sky-500',
-    emerald: 'bg-emerald-500',
-    amber: 'bg-amber-500',
-    red: 'bg-rose-500',
-    indigo: 'bg-indigo-500',
-    slate: 'bg-slate-500',
+    cyan: 'bg-[var(--ev-sky)]',
+    emerald: 'bg-[var(--ev-emerald)]',
+    amber: 'bg-[var(--ev-amber)]',
+    red: 'bg-[var(--ev-rose)]',
+    indigo: 'bg-[var(--ev-indigo)]',
+    slate: 'bg-[var(--ev-text-muted)]',
   };
 
   const sizeStyles = {
     sm: 'text-[11px] px-2 py-0.5',
-    md: 'text-xs px-2.5 py-1',
+    md: 'text-[12px] px-2.5 py-1',
   };
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 font-medium border rounded-full ${variantStyles[variant]} ${sizeStyles[size]}`}
+      className={`inline-flex items-center gap-1.5 font-medium border rounded-md ${variantStyles[variant]} ${sizeStyles[size]}`}
     >
       {dot && <span className={`w-1.5 h-1.5 rounded-full ${dotColors[variant]}`} />}
       {children}

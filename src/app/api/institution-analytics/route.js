@@ -15,6 +15,6 @@ export async function GET(request) {
     const analytics = await getInstitutionAnalytics();
     return NextResponse.json({ success: true, analytics });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

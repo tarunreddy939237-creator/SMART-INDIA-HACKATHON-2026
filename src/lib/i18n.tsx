@@ -11,8 +11,10 @@ const translations = {
     videoLectures: 'Video Lectures', registerFace: 'Register Face', feedback: 'Feedback',
     myProfile: 'My Profile', help: 'Help', attendance: 'Attendance', manualAttendance: 'Manual Attendance',
     students: 'Students', classAnalytics: 'Class Analytics', createQuiz: 'Create Quiz',
-    myQuizzes: 'My Quizzes', notesResources: 'Notes & Resources', controlTower: 'Control Tower',
+    myQuizzes: 'My Quizzes', notesResources: 'Notes & Resources', controlTower: 'Control Tower', accountApprovals: 'Account Approvals',
     menu: 'MENU', language: 'Language',
+    home: 'Home', aiStudyCopilot: 'AI Study Copilot', progress: 'Progress',
+    achievements: 'Achievements', dailyTasks: 'Daily Tasks', academicCalendar: 'Academic Calendar', courses: 'Courses',
 
     // Topbar / page titles
     attendanceOverview: 'Attendance & Academic Overview',
@@ -94,8 +96,10 @@ const translations = {
     videoLectures: 'వీడియో లెక్చర్లు', registerFace: 'ముఖం నమోదు', feedback: 'అభిప్రాయం',
     myProfile: 'నా ప్రొఫైల్', help: 'సహాయం', attendance: 'హాజరు', manualAttendance: 'మాన్యువల్ హాజరు',
     students: 'విద్యార్థులు', classAnalytics: 'తరగతి విశ్లేషణ', createQuiz: 'క్విజ్ సృష్టించు',
-    myQuizzes: 'నా క్విజ్లు', notesResources: 'నోట్స్ & వనరులు', controlTower: 'నియంత్రణ టవర్',
+    myQuizzes: 'నా క్విజ్లు', notesResources: 'నోట్స్ & వనరులు', controlTower: 'నియంత్రణ టవర్', accountApprovals: 'ఖాతా ఆమోదాలు',
     menu: 'మెనూ', language: 'భాష',
+    home: 'హోమ్', aiStudyCopilot: 'AI అధ్యయన సహాయకుడు', progress: 'ప్రగతి', dailyTasks: 'రోజువారీ పనులు',
+    achievements: 'సాధనలు', academicCalendar: 'విద్యా క్యాలెండర్', courses: 'కోర్సులు',
 
     attendanceOverview: 'హాజరు & విద్యా అవలోకనం',
     currentSemester: 'ప్రస్తుత సెమిస్టర్',
@@ -166,8 +170,10 @@ const translations = {
     videoLectures: 'वीडियो व्याख्यान', registerFace: 'चेहरा पंजीकृत करें', feedback: 'प्रतिक्रिया',
     myProfile: 'मेरा प्रोफाइल', help: 'सहायता', attendance: 'उपस्थिति', manualAttendance: 'मैनुअल उपस्थिति',
     students: 'छात्र', classAnalytics: 'कक्षा विश्लेषण', createQuiz: 'क्विज़ बनाएं',
-    myQuizzes: 'मेरी क्विज़', notesResources: 'नोट्स और संसाधन', controlTower: 'नियंत्रण टॉवर',
+    myQuizzes: 'मेरी क्विज़', notesResources: 'नोट्स और संसाधन', controlTower: 'नियंत्रण टॉवर', accountApprovals: 'खाता अनुमोदन',
     menu: 'मेनू', language: 'भाषा',
+    home: 'होम', aiStudyCopilot: 'AI अध्ययन सहायक', progress: 'प्रगति',
+    achievements: 'उपलब्धियाँ', dailyTasks: 'दैनिक कार्य', academicCalendar: 'शैक्षणिक कैलेंडर', courses: 'पाठ्यक्रम',
 
     attendanceOverview: 'उपस्थिति और शैक्षणिक अवलोकन',
     currentSemester: 'वर्तमान सेमेस्टर',

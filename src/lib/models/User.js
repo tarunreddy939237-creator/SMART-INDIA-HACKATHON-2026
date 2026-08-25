@@ -3,23 +3,63 @@ import mongoose from 'mongoose';
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  role: { type: String, enum: ['student', 'faculty', 'admin'], required: true, default: 'student' },
+  role: { type: String, enum: ['student', 'faculty', 'admin', 'college_admin', 'super_admin'], required: true, default: 'student' },
   classOrSubject: { type: String, default: 'CSE-A' },
-  subjects: { type: [String], default: [] },  // 5 theory subjects
-  labs:     { type: [String], default: [] },  // 3 lab subjects
+  rollNumber:    { type: String, default: '', trim: true },
+  yearOfStudy:   { type: Number, default: 0, min: 0, max: 4 },
+  facultyId:     { type: String, default: '', trim: true },  // Employee/Faculty ID for faculty users
+  subjects: { type: [String], default: [] },
+  labs:     { type: [String], default: [] },
   faceEmbedding: { type: [Number], default: [] },
   passwordHash: { type: String, required: true },
-  guardianPhone: { type: String, default: '' },   // e.g. "+919876543210" — used for WhatsApp/SMS alerts
+  guardianPhone: { type: String, default: '' },
+  guardianContact: {
+    name:  { type: String, default: '' },
+    phone: { type: String, default: '' },
+    email: { type: String, default: '' },
+    preferredChannel: { type: String, enum: ['whatsapp', 'sms', 'email'], default: 'whatsapp' },
+  },
+  notifyOptIn: { type: Boolean, default: true },
   languagePreference: { type: String, enum: ['en', 'te', 'hi'], default: 'en' },
   accessibilitySettings: {
     fontSize:      { type: String, enum: ['normal', 'large', 'xlarge'], default: 'normal' },
     highContrast:  { type: Boolean, default: false },
     reducedMotion: { type: Boolean, default: false },
   },
+  // Password reset
+  passwordResetToken:   { type: String, default: null },
+  passwordResetExpires: { type: Date, default: null },
+  passwordResetUsed:    { type: Boolean, default: false },
+
+  // ── College / Multi-tenant fields ──────────────────────────────────────
+  collegeId:     { type: mongoose.Schema.Types.ObjectId, ref: 'College', default: null },
+  collegeName:   { type: String, default: '', trim: true },  // Denormalized for display
+  accountStatus: { type: String, enum: ['pending', 'active', 'rejected', 'suspended', 'deactivated'], default: 'pending' },
+  emailVerified: { type: Boolean, default: false },
+  approvedBy:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  approvedAt:    { type: Date, default: null },
+  rejectionReason: { type: String, default: '' },
+  // Department / Branch / Section for faculty-student scoping
+  department:    { type: String, default: '' },
+  branch:        { type: String, default: '' },  // e.g. "CSE", "ECE"
+  section:       { type: String, default: '' },  // e.g. "A", "B"
+
   createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
 UserSchema.index({ role: 1 });
 UserSchema.index({ classOrSubject: 1 });
+UserSchema.index({ rollNumber: 1, classOrSubject: 1 }, { sparse: true });
+UserSchema.index({ collegeId: 1 });
+UserSchema.index({ collegeId: 1, accountStatus: 1 });
+UserSchema.index({ collegeId: 1, role: 1 });
+UserSchema.index({ collegeId: 1, rollNumber: 1 }, { sparse: true });
+UserSchema.index({ collegeId: 1, facultyId: 1 }, { sparse: true });
+
+// Auto-update updatedAt (Mongoose 7+ uses async, no next callback)
+UserSchema.pre('save', function () {
+  this.updatedAt = Date.now();
+});
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);

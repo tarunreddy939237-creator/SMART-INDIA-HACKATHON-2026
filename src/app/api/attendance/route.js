@@ -19,6 +19,7 @@ import { batchRecalculate } from '@/lib/successScoreEngine.js';
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const rosterClass = searchParams.get('roster');
 
@@ -32,7 +33,7 @@ export async function GET(request) {
 
     // ── 7-day per-student attendance trend ─────────────────────────────────
     if (trendClass === 'STUDENT') {
-      const sid = session?.user?.id || '64f1a2b3c4d5e6f7a8b9c001';
+      const sid = session?.user?.id;
       const db = await connectToDatabase();
       if (!db) return NextResponse.json({ trend: [] });
       try {
@@ -93,8 +94,8 @@ export async function GET(request) {
       }
     }
 
-    const userRole = session?.user?.role || 'student';
-    const userId   = session?.user?.id   || '64f1a2b3c4d5e6f7a8b9c001';
+    const userRole = session?.user?.role;
+    const userId   = session?.user?.id;
 
     if (userRole === 'faculty' || userRole === 'admin') {
       const records = await getAttendanceForFaculty(userId);
@@ -106,6 +107,16 @@ export async function GET(request) {
     const total        = records.length || 24;
     const percentage   = Math.round((presentCount / total) * 100);
 
+    // Generate attendance warning if below threshold (non-blocking)
+    try {
+      if (percentage > 0 && percentage < 75) {
+        const { onAttendanceWarning } = await import('@/lib/notificationEngine.js');
+        await onAttendanceWarning(userId, '', percentage, 75);
+      }
+    } catch (notifErr) {
+      // Non-fatal
+    }
+
     return NextResponse.json({
       records,
       percentage:   percentage || 94,
@@ -113,14 +124,14 @@ export async function GET(request) {
       absentCount:  total - presentCount || 2,
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch attendance' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
     const session  = await getServerSession(authOptions);
-    const userRole = session?.user?.role || 'faculty';
+    const userRole = session?.user?.role;
 
     if (userRole !== 'faculty' && userRole !== 'admin') {
       return NextResponse.json({ error: 'Unauthorized: Faculty or Admin role required' }, { status: 403 });
@@ -128,7 +139,7 @@ export async function POST(request) {
 
     const body      = await request.json();
     const { records, studentId, status, confidenceScore } = body;
-    const facultyId = session?.user?.id || '64f1a2b3c4d5e6f7a8b9c004';
+    const facultyId = session?.user?.id;
 
     // ── Single student submission ─────────────────────────────────────────
     if (!records && studentId) {
@@ -172,7 +183,7 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, count: saved.length, records: saved });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to save attendance' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 

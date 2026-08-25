@@ -12,6 +12,7 @@ import Topbar  from '@/components/dashboard/Topbar';
 import StatCard from '@/components/dashboard/StatCard';
 import Badge   from '@/components/shared/Badge';
 import DataTable from '@/components/shared/DataTable';
+import AttendanceHeatmap from '@/components/dashboard/AttendanceHeatmap';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, CartesianGrid, Legend, Cell,
@@ -383,6 +384,9 @@ export default function FacultyClassesPage() {
               </div>
             </div>
           </div>
+
+          {/* ── Attendance Heatmap ── */}
+          <AttendanceHeatmap section={selectedClass} />
 
           {/* ── Risk Factor Chart + Suggestion ── */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">

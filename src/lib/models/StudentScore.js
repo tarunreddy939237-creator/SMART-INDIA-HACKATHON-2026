@@ -21,6 +21,15 @@ const StudentScoreSchema = new mongoose.Schema({
   prevRiskScore: { type: Number, default: null },
   riskTier: { type: String, enum: ['Low', 'Medium', 'High'], default: 'Low' },
   riskFactors: [{ type: String }],
+  structuredFactors: [{
+    name: { type: String },
+    weight: { type: Number },
+    contribution: { type: Number },
+    status: { type: String, enum: ['good', 'warn', 'bad'] },
+    trend: { type: String, enum: ['improving', 'declining', 'stable', 'critical'] },
+    detail: { type: String },
+    hasData: { type: Boolean, default: true },
+  }],
 
   // Trend direction
   trend: { type: String, enum: ['improving', 'declining', 'stable'], default: 'stable' },

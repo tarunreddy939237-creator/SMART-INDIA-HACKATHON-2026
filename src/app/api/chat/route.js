@@ -7,11 +7,12 @@ import { geminiChat, geminiAvailable } from '@/lib/gemini.js';
 export async function POST(request) {
   try {
     const session     = await getServerSession(authOptions);
-    const studentId   = session?.user?.id   || '64f1a2b3c4d5e6f7a8b9c001';
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const studentId   = session?.user?.id;
     const studentName = session?.user?.name || 'Aarav Sharma';
 
     const body = await request.json();
-    const { messages, currentTopic } = body;
+    const { messages, currentTopic, simplify } = body;
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
@@ -22,19 +23,25 @@ export async function POST(request) {
     try { ctx = await getStudent360(studentId); } catch { /* use null */ }
     const ai = ctx?.aiContext;
 
+    // Limit history to last 6 messages to avoid Groq 413 token limit
+    const recentMessages = messages.slice(-6);
+
     const contextBlock = ai ? `
 Student context (verified data — do NOT invent or modify these numbers):
 - Attendance: ${ai.attendance.percentage}% (${ai.attendance.trend} trend)
 - Average quiz score: ${ai.academic.avgQuizScore}%
-- Weak topics: ${ai.academic.weakTopics.map((w) => w.topic).join(', ') || 'none identified yet'}
-- Recent scores: ${ai.academic.recentScores.map((s) => `${s.score}%`).join(', ') || 'none'}
+- Weak topics: ${(ai.academic.weakTopics || []).slice(0, 3).map((w) => w.topic).join(', ') || 'none identified yet'}
 - Study streak: ${ai.streak.current} days
-- Risk level: ${ai.riskTier}${ai.riskFactors.length ? ' — ' + ai.riskFactors[0] : ''}
-- Active learning focus: ${ai.activePlan?.focusAreas?.join(', ') || currentTopic || 'General coursework'}
-- Preferred language: ${ai.language === 'te' ? 'Telugu' : ai.language === 'hi' ? 'Hindi' : 'English'}` : '';
+- Risk level: ${ai.riskTier}${ai.riskFactors?.length ? ' — ' + ai.riskFactors[0] : ''}
+- Active focus: ${ai.activePlan?.focusAreas?.slice(0,2).join(', ') || currentTopic || 'General coursework'}` : '';
+
+
+    const simplifyInstruction = simplify
+      ? `\n\nIMPORTANT: The student found the previous explanation too complex. Re-explain your previous answer in simpler terms, as if to a beginner. Use a concrete everyday analogy or real-world example to make the concept intuitive. Avoid jargon. Keep it under 150 words. Start with something like "Let me explain that more simply..." or "Think of it this way..."`
+      : '';
 
     const systemPrompt = `You are EduVision AI, a personalised academic mentor for engineering students.
-Student name: ${studentName}.${contextBlock}
+Student name: ${studentName}.${contextBlock}${simplifyInstruction}
 Rules:
 - Use ONLY the verified data above when referencing the student's performance.
 - Never invent marks, attendance percentages, or statistics.
@@ -42,13 +49,13 @@ Rules:
 - Provide rigorous yet intuitive explanations. Use markdown, bullet points, and equations where helpful.
 - When the student asks about a weak topic listed above, prioritise explaining that concept first.`;
 
-    const lastMessage = messages[messages.length - 1]?.content || '';
+    const lastMessage = recentMessages[recentMessages.length - 1]?.content || '';
 
     // ── 1. Try Gemini ──────────────────────────────────────────────────────────
     if (geminiAvailable()) {
       try {
         // Convert history to Gemini format — must start with 'user' and alternate roles
-        const rawHistory = messages.slice(0, -1).map((m) => ({
+        const rawHistory = recentMessages.slice(0, -1).map((m) => ({
           role: m.role === 'assistant' ? 'model' : 'user',
           parts: [{ text: m.content }],
         }));
@@ -74,7 +81,7 @@ Rules:
       try {
         const { default: Anthropic } = await import('@anthropic-ai/sdk');
         const anthropic = new Anthropic({ apiKey: anthropicKey });
-        const formattedMessages = messages.map((m) => ({
+        const formattedMessages = recentMessages.map((m) => ({
           role: m.role === 'assistant' ? 'assistant' : 'user',
           content: m.content,
         }));
@@ -97,7 +104,7 @@ Rules:
       source: 'eduvision-offline-engine',
     });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 

@@ -26,7 +26,7 @@ export async function GET(request) {
 
     return NextResponse.json({ videos: [] }, { status: 401 });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch video lectures' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -53,7 +53,7 @@ export async function POST(request) {
     const video = await createVideoLecture({ title, description, subject, branch, section, videoUrl, duration, uploadedBy });
     return NextResponse.json({ success: true, video });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to save video lecture' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -70,6 +70,6 @@ export async function DELETE(request) {
     await deleteVideoLecture(videoId);
     return NextResponse.json({ success: true });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to delete video lecture' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

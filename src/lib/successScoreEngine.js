@@ -78,44 +78,82 @@ function deriveRisk(successScore, breakdown, attendanceRecords, quizAttempts) {
   const riskScore = Math.max(0, 100 - successScore);
   const riskTier  = successScore >= 70 ? 'Low' : successScore >= 45 ? 'Medium' : 'High';
   const factors   = [];
+  const structuredFactors = [];
 
+  // Attendance factor (25% weight)
+  let attStatus = 'good';
+  let attContrib = 0;
   if (breakdown.attendance < 75) {
-    const pct = breakdown.attendance;
-    factors.push(`Attendance is ${pct}% — below the 75% minimum threshold`);
+    attStatus = 'bad'; attContrib = 25;
+    factors.push(`Attendance is ${breakdown.attendance}% — below the 75% minimum threshold`);
   } else if (breakdown.attendance < 85) {
+    attStatus = 'warn'; attContrib = 10;
     factors.push(`Attendance at ${breakdown.attendance}% — approaching risk threshold`);
   }
+  structuredFactors.push({ name: 'Attendance', weight: 25, contribution: attContrib, status: attStatus, trend: breakdown.attendance >= 85 ? 'improving' : breakdown.attendance >= 75 ? 'stable' : 'declining', detail: `${breakdown.attendance}%`, hasData: true });
 
+  // Academic factor (30% weight)
+  let acadStatus = 'good';
+  let acadContrib = 0;
   if (breakdown.academic < 50) {
+    acadStatus = 'bad'; acadContrib = 30;
     factors.push(`Average quiz score is ${breakdown.academic}% — critically low`);
   } else if (breakdown.academic < 65) {
+    acadStatus = 'warn'; acadContrib = 15;
     factors.push(`Quiz average of ${breakdown.academic}% is below the class median`);
   }
-
-  // Detect declining quiz trend (last 3 attempts)
+  // Detect declining quiz trend
   if (quizAttempts.length >= 2) {
     const sorted = [...quizAttempts].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
     const last3  = sorted.slice(-3);
     const first  = last3[0].score;
     const last   = last3[last3.length - 1].score;
     if (last - first <= -15) {
+      acadContrib += 10;
       factors.push(`Quiz scores declining: ${first}% → ${last}% over last ${last3.length} attempts`);
+      if (acadStatus !== 'bad') acadStatus = 'warn';
     }
   }
+  structuredFactors.push({ name: 'Academic Performance', weight: 30, contribution: Math.min(30, acadContrib), status: acadStatus, trend: breakdown.academic >= 75 ? 'improving' : breakdown.academic >= 50 ? 'stable' : 'declining', detail: `${breakdown.academic}%`, hasData: breakdown.academic > 0 });
 
+  // Engagement factor (15% weight)
+  let engStatus = 'good';
+  let engContrib = 0;
   if (breakdown.engagement < 25) {
+    engStatus = 'bad'; engContrib = 15;
     factors.push('Very low quiz engagement — fewer than 1 attempt per 2 weeks');
+  } else if (breakdown.engagement < 50) {
+    engStatus = 'warn'; engContrib = 5;
   }
+  structuredFactors.push({ name: 'Engagement', weight: 15, contribution: engContrib, status: engStatus, trend: breakdown.engagement >= 50 ? 'improving' : breakdown.engagement >= 25 ? 'stable' : 'declining', detail: `${breakdown.engagement}/100`, hasData: true });
 
+  // Consistency factor (10% weight)
+  let consStatus = 'good';
+  let consContrib = 0;
   if (breakdown.consistency < 20) {
+    consStatus = 'bad'; consContrib = 10;
     factors.push('Low study consistency — streak history shows irregular engagement');
+  } else if (breakdown.consistency < 50) {
+    consStatus = 'warn'; consContrib = 3;
   }
+  structuredFactors.push({ name: 'Study Consistency', weight: 10, contribution: consContrib, status: consStatus, trend: breakdown.consistency >= 50 ? 'improving' : breakdown.consistency >= 20 ? 'stable' : 'declining', detail: `${breakdown.consistency}/100`, hasData: true });
+
+  // Assignments factor (20% weight)
+  let assignStatus = 'good';
+  let assignContrib = 0;
+  if (breakdown.assignments < 30) {
+    assignStatus = 'bad'; assignContrib = 20;
+    factors.push('Very low assignment completion — streak proxy indicates disengagement');
+  } else if (breakdown.assignments < 60) {
+    assignStatus = 'warn'; assignContrib = 5;
+  }
+  structuredFactors.push({ name: 'Assignment Completion', weight: 20, contribution: assignContrib, status: assignStatus, trend: breakdown.assignments >= 60 ? 'improving' : breakdown.assignments >= 30 ? 'stable' : 'declining', detail: `${breakdown.assignments}/100`, hasData: true });
 
   if (factors.length === 0) {
     factors.push('All indicators within normal range');
   }
 
-  return { riskScore, riskTier, riskFactors: factors };
+  return { riskScore, riskTier, riskFactors: factors, structuredFactors };
 }
 
 // ── Trend calculation ─────────────────────────────────────────────────────────
@@ -161,7 +199,7 @@ export async function recalculate(studentId) {
     };
 
     const successScore = computeSuccessScore(breakdown);
-    const { riskScore, riskTier, riskFactors } = deriveRisk(
+    const { riskScore, riskTier, riskFactors, structuredFactors } = deriveRisk(
       successScore, breakdown, attendanceRecords, quizAttempts
     );
 
@@ -186,6 +224,7 @@ export async function recalculate(studentId) {
       prevRiskScore,
       riskTier,
       riskFactors,
+      structuredFactors,
       trend,
       history: updatedHistory,
       calculatedAt: new Date(),

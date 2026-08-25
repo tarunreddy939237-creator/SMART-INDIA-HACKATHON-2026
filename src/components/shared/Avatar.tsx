@@ -8,31 +8,27 @@ interface AvatarProps {
 
 export default function Avatar({ name, role, size = 'md' }: AvatarProps) {
   const initials = name
-    ? name
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase()
+    ? name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase()
     : 'U';
 
   const sizeClasses = {
-    sm: 'w-8 h-8 text-xs',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-base',
+    sm: 'w-8 h-8 text-[11px] rounded-lg',
+    md: 'w-10 h-10 text-[13px] rounded-xl',
+    lg: 'w-12 h-12 text-[14px] rounded-xl',
   };
 
-  const roleStyles: Record<string, string> = {
-    student: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    faculty: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    admin: 'bg-amber-100 text-amber-800 border-amber-200',
+  const roleGradients: Record<string, string> = {
+    student: 'linear-gradient(135deg, #4F46E5, #818CF8)',
+    faculty: 'linear-gradient(135deg, #0D9488, #14B8A6)',
+    admin: 'linear-gradient(135deg, #D97706, #F59E0B)',
   };
 
-  const style = roleStyles[role || 'student'] || 'bg-slate-100 text-slate-700 border-slate-200';
+  const gradient = roleGradients[role || 'student'] || 'linear-gradient(135deg, #64748B, #94A3B8)';
 
   return (
     <div
-      className={`rounded-full ${style} border flex items-center justify-center font-bold shadow-sm ${sizeClasses[size]}`}
+      className={`${sizeClasses[size]} flex items-center justify-center font-bold text-white shadow-sm shrink-0`}
+      style={{ background: gradient }}
     >
       {initials}
     </div>

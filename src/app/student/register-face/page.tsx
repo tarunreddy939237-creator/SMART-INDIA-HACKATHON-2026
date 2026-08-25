@@ -3,9 +3,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { motion } from 'framer-motion';
-import { Camera, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Scan, Sun, Move } from 'lucide-react';
-import Sidebar from '@/components/dashboard/Sidebar';
-import Topbar from '@/components/dashboard/Topbar';
+import { Camera, CheckCircle2, AlertCircle, RefreshCw, ShieldCheck, Scan, Sun, Move, Volume2, VolumeX, Lock } from 'lucide-react';
+import StudentSidebar from '@/components/dashboard/StudentSidebar';
+import StudentTopbar from '@/components/dashboard/StudentTopbar';
 
 type Status = 'idle' | 'loading-models' | 'ready' | 'capturing' | 'processing' | 'success' | 'error';
 
@@ -37,6 +37,54 @@ export default function RegisterFacePage() {
   const [captureCount, setCaptureCount] = useState(0);
   const [poseHint, setPoseHint]         = useState(POSE_HINTS[0]);
   const [quality, setQuality]           = useState(0);
+  const [muted, setMuted]               = useState(false);
+  const [lastTickTime, setLastTickTime] = useState(0);
+  const [lockIn, setLockIn]             = useState(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  /* ── Web Audio API tone helpers ── */
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioCtxRef.current;
+  }, []);
+
+  const playTickTone = useCallback(() => {
+    if (muted) return;
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.05);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.08);
+    } catch { /* audio not available */ }
+  }, [muted, getAudioCtx]);
+
+  const playSuccessTone = useCallback(() => {
+    if (muted) return;
+    try {
+      const ctx = getAudioCtx();
+      // Three-note ascending chime
+      [523, 659, 784].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.12);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime + i * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.25);
+        osc.start(ctx.currentTime + i * 0.12);
+        osc.stop(ctx.currentTime + i * 0.12 + 0.25);
+      });
+    } catch { /* audio not available */ }
+  }, [muted, getAudioCtx]);
 
   useEffect(() => {
     setStatus('loading-models');
@@ -118,6 +166,8 @@ export default function RegisterFacePage() {
       samplesRef.current = [...samplesRef.current, descriptor];
       const count = samplesRef.current.length;
       setCaptureCount(count);
+      setLastTickTime(Date.now());
+      playTickTone();
       setPoseHint(POSE_HINTS[Math.floor(count / 6) % POSE_HINTS.length]);
 
       if (count >= TOTAL_SAMPLES) {
@@ -156,8 +206,12 @@ export default function RegisterFacePage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setStatus('success');
-      setMessage(`Face registered with ${filtered.length} quality samples. You can now use face attendance.`);
+      setLockIn(true);
+      playSuccessTone();
+      setTimeout(() => {
+        setStatus('success');
+        setMessage(`Face registered with ${filtered.length} quality samples. You can now use face attendance.`);
+      }, 600);
     } catch (e: any) {
       setStatus('error');
       setMessage(e.message || 'Failed to save face data.');
@@ -179,27 +233,29 @@ export default function RegisterFacePage() {
 
   return (
     <div className="flex min-h-screen dash-bg text-slate-900">
-      <Sidebar role="student" />
+      <StudentSidebar />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar title="Face Registration" subtitle={session?.user?.name || ''} roleBadge="STUDENT" />
+        <StudentTopbar title="Face Registration" subtitle="Biometric attendance setup" />
         <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           <div className="w-full max-w-5xl mx-auto space-y-5">
 
             {/* Privacy notice */}
-            <div className="study-card p-4 flex items-start gap-3" style={{ background: '#EEF2FF', borderColor: '#C7D2FE' }}>
-              <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="rounded-2xl p-4 flex items-start gap-3 relative overflow-hidden"
+              style={{ background: 'rgba(28,222,200,0.04)', border: '1px solid rgba(28,222,200,0.25)' }}>
+              <div className="absolute top-0 left-0 bottom-0 w-0.5" style={{ background: 'linear-gradient(180deg, #4F46E5, #6366F1)' }} />
+              <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" style={{ color: 'var(--ev-indigo)' }} />
               <div className="text-xs text-slate-700">
-                <strong className="text-indigo-800 block mb-0.5">Privacy Notice</strong>
-                Only a 128-number mathematical descriptor is stored — no photos. All processing runs in your browser using SsdMobilenetv1 + 30-sample weighted averaging.
+                <strong className="block mb-0.5" style={{ color: '#0E8F82' }}>Privacy Notice</strong>
+                Only a <span className="font-mono">128-number</span> mathematical descriptor is stored — <strong>no photos</strong>. All processing runs in your browser using SsdMobilenetv1 + 30-sample weighted averaging.
               </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
               {/* LEFT: Camera */}
-              <div className="lg:col-span-7 study-card p-6 space-y-4">
+              <div className="lg:col-span-7 rounded-2xl p-5 space-y-4" style={{ background: '#0C1222', border: '1px solid #1A2535' }}>
                 {/* Video area */}
-                <div className="relative rounded-xl bg-slate-900 overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                <div className="relative rounded-xl overflow-hidden ev-scanline-loop" style={{ aspectRatio: '4/3', background: '#050810' }}>
                   <video
                     ref={videoRef}
                     autoPlay
@@ -208,63 +264,105 @@ export default function RegisterFacePage() {
                     className={`w-full h-full object-cover -scale-x-100 ${status === 'capturing' ? 'block' : 'hidden'}`}
                   />
 
-                  {/* Face box overlay */}
+                  {/* Viewfinder brackets — tighten on face detection */}
                   {status === 'capturing' && (
-                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                      <div className={`w-56 h-64 border-2 rounded-2xl transition-all duration-200 ${
-                        faceDetected ? 'border-emerald-400 shadow-[0_0_20px_rgba(52,211,153,0.3)]' : 'border-white/20'
-                      }`}>
-                        {faceDetected && (
-                          <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded whitespace-nowrap">
-                            ✓ FACE LOCKED · {quality}% quality
-                          </div>
-                        )}
-                      </div>
+                    <div className="absolute inset-[10px] pointer-events-none transition-all duration-300"
+                      style={{ opacity: faceDetected ? 1 : 0.5 }}>
+                      {/* TL */}
+                      <div className="absolute top-0 left-0 transition-all duration-300"
+                        style={{ width: faceDetected ? 10 : 18, height: faceDetected ? 10 : 18, borderTop: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}`, borderLeft: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}` }} />
+                      {/* TR */}
+                      <div className="absolute top-0 right-0 transition-all duration-300"
+                        style={{ width: faceDetected ? 10 : 18, height: faceDetected ? 10 : 18, borderTop: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}`, borderRight: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}` }} />
+                      {/* BL */}
+                      <div className="absolute bottom-0 left-0 transition-all duration-300"
+                        style={{ width: faceDetected ? 10 : 18, height: faceDetected ? 10 : 18, borderBottom: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}`, borderLeft: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}` }} />
+                      {/* BR */}
+                      <div className="absolute bottom-0 right-0 transition-all duration-300"
+                        style={{ width: faceDetected ? 10 : 18, height: faceDetected ? 10 : 18, borderBottom: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}`, borderRight: `2px solid ${faceDetected ? '#1CDEC8' : 'rgba(28,222,200,0.5)'}` }} />
                     </div>
                   )}
 
                   {/* Pose hint */}
                   {status === 'capturing' && faceDetected && (
-                    <div className="absolute top-3 left-3 right-3 bg-black/70 text-white text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-2">
-                      <Move className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <div className="absolute top-3 left-3 right-3 font-mono text-xs font-semibold px-3 py-1.5 rounded-xl flex items-center gap-2"
+                      style={{ background: 'rgba(0,0,0,0.75)', color: 'var(--ev-indigo)', border: '1px solid rgba(28,222,200,0.3)' }}>
+                      <Move className="w-3.5 h-3.5 shrink-0" />
                       {poseHint}
                     </div>
                   )}
 
-                  {/* Progress bar */}
+                  {/* SVG Circular Progress Ring — Face ID style */}
                   {status === 'capturing' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-slate-700">
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <svg width="75%" height="75%" viewBox="0 0 200 200" className="-rotate-90">
+                        {/* Track */}
+                        <circle cx="100" cy="100" r="88" fill="none" strokeWidth="3"
+                          stroke="rgba(255,255,255,0.08)" />
+                        {/* Progress */}
+                        <circle cx="100" cy="100" r="88" fill="none" strokeWidth="4"
+                          stroke="url(#ringGrad)"
+                          strokeDasharray={2 * Math.PI * 88}
+                          strokeDashoffset={2 * Math.PI * 88 * (1 - captureCount / TOTAL_SAMPLES)}
+                          strokeLinecap="round"
+                          style={{ filter: 'drop-shadow(0 0 6px rgba(28,222,200,0.5))', transition: 'stroke-dashoffset 0.15s ease-out' }} />
+                        <defs>
+                          <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="#1CDEC8" />
+                            <stop offset="100%" stopColor="#5B52FF" />
+                          </linearGradient>
+                        </defs>
+                      </svg>
+                    </div>
+                  )}
+
+                  {/* Tick flash — brief glow on each capture */}
+                  {status === 'capturing' && lastTickTime > 0 && (
+                    <div className="absolute inset-0 pointer-events-none" style={{
+                      background: 'radial-gradient(circle at center, rgba(28,222,200,0.15) 0%, transparent 60%)',
+                      animation: 'tick-flash 0.3s ease-out forwards',
+                    }} />
+                  )}
+
+                  {/* Lock-in animation overlay */}
+                  {lockIn && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <motion.div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
-                        animate={{ width: `${pct}%` }}
-                        transition={{ duration: 0.2 }}
-                      />
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: [0.5, 1.2, 1], opacity: [0, 1, 1] }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      >
+                        <Lock className="w-16 h-16" style={{ color: 'var(--ev-indigo)', filter: 'drop-shadow(0 0 12px rgba(28,222,200,0.6))' }} />
+                      </motion.div>
                     </div>
                   )}
 
                   {/* Idle/status overlay */}
                   {status !== 'capturing' && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white">
-                      {status === 'loading-models' && <div className="w-10 h-10 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                      {status === 'processing'     && <div className="w-10 h-10 border-2 border-indigo-300/30 border-t-indigo-400 rounded-full animate-spin" />}
-                      {status === 'success'        && <CheckCircle2 className="w-14 h-14 text-emerald-400" />}
-                      {status === 'error'          && <AlertCircle  className="w-14 h-14 text-rose-400" />}
-                      {status === 'ready'          && <Camera       className="w-14 h-14 text-slate-400" />}
-                      <p className="text-sm text-slate-300 text-center px-8 leading-relaxed">{message}</p>
+                      {status === 'loading-models' && <div className="w-10 h-10 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(79,70,229,0.15)', borderTopColor: '#1CDEC8' }} />}
+                      {status === 'processing'     && <div className="w-10 h-10 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(79,70,229,0.15)', borderTopColor: '#5B52FF' }} />}
+                      {status === 'success'        && <CheckCircle2 className="w-14 h-14" style={{ color: 'var(--ev-indigo)' }} />}
+                      {status === 'error'          && <AlertCircle  className="w-14 h-14" style={{ color: 'var(--ev-rose)' }} />}
+                      {status === 'ready'          && <Camera       className="w-14 h-14" style={{ color: 'rgba(28,222,200,0.4)' }} />}
+                      <p className="text-sm text-center px-8 leading-relaxed" style={{ color: 'rgba(255,255,255,0.5)' }}>{message}</p>
                     </div>
                   )}
                 </div>
 
-                {/* Capture progress dots */}
+                {/* Capture progress — large mono counter */}
                 {status === 'capturing' && (
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs text-slate-600">
-                      <span>{message}</span>
-                      <span className="font-mono font-bold text-indigo-600">{captureCount}/{TOTAL_SAMPLES}</span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-end">
+                      <span className="text-[11px] text-slate-400">{message}</span>
+                      <span className="font-mono text-2xl font-bold tabular-nums" style={{ color: 'var(--ev-indigo)', letterSpacing: '-0.03em' }}>
+                        {String(captureCount).padStart(2,'0')}<span className="text-sm opacity-40">/{TOTAL_SAMPLES}</span>
+                      </span>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex gap-0.5">
                       {Array.from({ length: TOTAL_SAMPLES }).map((_, i) => (
-                        <div key={i} className={`flex-1 h-1.5 rounded-full transition-colors ${i < captureCount ? 'bg-indigo-500' : 'bg-slate-200'}`} />
+                        <div key={i} className="flex-1 h-1.5 rounded-full transition-colors"
+                          style={{ background: i < captureCount ? '#1CDEC8' : 'rgba(255,255,255,0.08)' }} />
                       ))}
                     </div>
                   </div>
@@ -274,7 +372,8 @@ export default function RegisterFacePage() {
                 <div className="flex gap-3">
                   {status === 'ready' && (
                     <motion.button onClick={startCamera} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm">
+                      className="flex-1 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 text-sm"
+                      style={{ background: 'linear-gradient(135deg, #4F46E5, #6366F1)', boxShadow: '0 6px 20px rgba(28,222,200,0.3)' }}>
                       <Scan className="w-4 h-4" /> Start Registration
                     </motion.button>
                   )}
@@ -290,6 +389,22 @@ export default function RegisterFacePage() {
                       Cancel
                     </motion.button>
                   )}
+                </div>
+
+                {/* Mute toggle — respects quiet demo rooms */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setMuted(m => !m)}
+                    className="flex items-center gap-1.5 font-mono text-[10px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+                    style={{
+                      background: muted ? 'rgba(255,255,255,0.06)' : 'rgba(28,222,200,0.1)',
+                      color: muted ? '#64748B' : '#1CDEC8',
+                      border: `1px solid ${muted ? 'rgba(255,255,255,0.08)' : 'rgba(28,222,200,0.25)'}`,
+                    }}
+                  >
+                    {muted ? <VolumeX className="w-3 h-3" /> : <Volume2 className="w-3 h-3" />}
+                    {muted ? 'SOUND OFF' : 'SOUND ON'}
+                  </button>
                 </div>
               </div>
 
@@ -347,20 +462,21 @@ export default function RegisterFacePage() {
                 </div>
 
                 {/* How it works */}
-                <div className="study-card p-5 space-y-3">
-                  <p className="text-sm font-bold text-slate-700">How Registration Works</p>
-                  <ol className="space-y-2.5 text-xs text-slate-600">
+                <div className="rounded-2xl p-5 space-y-3" style={{ background: '#0C1222', border: '1px solid #1A2535' }}>
+                  <p className="font-display text-sm font-bold text-white">How Registration Works</p>
+                  <ol className="space-y-3">
                     {[
                       'Camera captures 30 face samples at different angles.',
                       'Outlier samples are filtered for quality.',
                       'A weighted average descriptor is computed.',
                       'Only the 128-number vector is saved — no photos stored.',
                     ].map((step, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="font-mono w-6 h-6 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-bold"
+                          style={{ background: 'rgba(28,222,200,0.1)', color: 'var(--ev-indigo)', border: '1px solid rgba(28,222,200,0.25)' }}>
                           {i + 1}
                         </span>
-                        {step}
+                        <span className="text-xs leading-relaxed" style={{ color: 'rgba(255,255,255,0.6)' }}>{step}</span>
                       </li>
                     ))}
                   </ol>

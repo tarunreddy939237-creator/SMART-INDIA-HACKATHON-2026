@@ -6,6 +6,7 @@ import { submitFeedback, getAggregatedFeedback } from '@/lib/queries.js';
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const subjectOrFacultyId = searchParams.get('target');
     // Faculty can fetch their own feedback by passing ?mine=1
@@ -15,7 +16,7 @@ export async function GET(request) {
     const feedbackData = await getAggregatedFeedback(subjectOrFacultyId || undefined, facultyId || undefined);
     return NextResponse.json({ feedback: feedbackData });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to fetch feedback' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }
 
@@ -45,6 +46,6 @@ export async function POST(request) {
 
     return NextResponse.json({ success: true, feedback });
   } catch (error) {
-    return NextResponse.json({ error: error.message || 'Failed to submit feedback' }, { status: 500 });
+    return NextResponse.json({ error: 'Something went wrong. Please try again.' }, { status: 500 });
   }
 }

@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Sidebar from '@/components/dashboard/Sidebar';
 import Topbar from '@/components/dashboard/Topbar';
+import AnomalyFlagList from '@/components/dashboard/AnomalyFlagList';
 import Badge from '@/components/shared/Badge';
 
 interface EnrolledStudent {
@@ -292,41 +293,46 @@ export default function FacultyAttendancePage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 text-slate-900">
+    <div className="flex min-h-screen dash-bg text-slate-900">
       <Sidebar role="faculty" />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar title="Face Attendance" roleBadge="FACULTY" />
         <main className="flex-1 p-5 sm:p-6 lg:p-8 space-y-5 overflow-y-auto">
 
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4"
+            style={{ borderBottom: '1px solid rgba(28,222,200,0.15)' }}>
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Real-Time Face Recognition</h1>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <h1 className="font-display text-2xl font-bold text-slate-900 tracking-tight" style={{ letterSpacing: '-0.02em' }}>Real-Time Face Recognition</h1>
+              <p className="font-mono text-[10px] text-slate-400 mt-0.5" style={{ letterSpacing: '0.04em' }}>
                 SsdMobilenetv1 · {VOTES_REQUIRED}-vote lock · min {MIN_CONFIDENCE}% confidence · 1 face at a time
               </p>
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <select value={section} onChange={e => setSection(e.target.value)}
-                className="text-xs border border-slate-200 rounded-xl px-3 py-2 bg-white outline-none focus:border-indigo-400 shadow-sm">
+                className="font-mono text-xs border rounded-xl px-3 py-2 bg-white outline-none shadow-sm"
+                style={{ borderColor: 'rgba(28,222,200,0.3)' }}>
                 {SECTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
-              <span className="text-xs font-mono px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-slate-700 shadow-sm">
-                Present: <strong className="text-emerald-600">{presentCount}</strong> / {students.length}
+              <span className="font-mono text-xs px-3 py-1.5 rounded-xl bg-white border shadow-sm"
+                style={{ borderColor: 'rgba(28,222,200,0.25)' }}>
+                Present: <strong style={{ color: 'var(--ev-emerald)' }}>{presentCount}</strong> / {students.length}
               </span>
               <motion.button onClick={handleCommit} disabled={isSaving || !students.length}
                 whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-50 shadow-md shadow-emerald-100">
+                className="px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-50"
+                style={{ background: 'linear-gradient(135deg, #10B981, #1CDEC8)', boxShadow: '0 4px 16px rgba(28,222,200,0.3)' }}>
                 <Save className="w-4 h-4" />{isSaving ? 'Saving…' : 'Commit Attendance'}
               </motion.button>
             </div>
           </div>
 
           {/* Model status */}
-          <div className="p-3.5 rounded-2xl flex items-start gap-3 bg-indigo-50 border border-indigo-200 shadow-sm">
-            <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-slate-700">
-              <strong className="text-indigo-800">
+          <div className="p-3.5 rounded-2xl flex items-start gap-3"
+            style={{ background: 'rgba(28,222,200,0.06)', border: '1px solid rgba(79,70,229,0.15)' }}>
+            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--ev-indigo)' }} />
+            <p className="font-mono text-[11px] text-slate-700">
+              <strong style={{ color: 'var(--ev-indigo)' }}>
                 {modelLoading ? 'Loading models…' : modelsReady ? 'Models ready · ' : 'Model load failed · '}
               </strong>
               {modelsReady && `${enrolledWithFace}/${students.length} faces enrolled · ${VOTES_REQUIRED} consecutive matches required · confidence ≥ ${MIN_CONFIDENCE}% · 1 face per frame`}
@@ -373,24 +379,45 @@ export default function FacultyAttendancePage() {
 
             {/* Camera panel */}
             <div className="lg:col-span-7">
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-md flex flex-col" style={{ height: 500 }}>
-                <div className="relative flex-1 rounded-xl bg-slate-900 overflow-hidden flex items-center justify-center">
+              <div className="rounded-2xl p-5 flex flex-col ev-scanline-loop" style={{ background: '#0C1222', border: '1px solid #1A2535', height: 520 }}>
+                <div className="relative flex-1 rounded-xl overflow-hidden flex items-center justify-center" style={{ background: '#050810' }}>
                   <video ref={videoRef} autoPlay playsInline muted
                     className={`w-full h-full object-cover -scale-x-100 ${cameraOn ? 'block' : 'hidden'}`}
                   />
+
+                  {/* Viewfinder brackets */}
+                  {cameraOn && (
+                    <div className="absolute inset-[12px] pointer-events-none transition-all duration-200"
+                      style={{ opacity: liveResults[0]?.matched ? 1 : 0.5 }}>
+                      {/* TL */}
+                      <div className="absolute top-0 left-0 transition-all duration-200"
+                        style={{ width: liveResults[0]?.matched ? 10 : 16, height: liveResults[0]?.matched ? 10 : 16, borderTop: '2px solid #1CDEC8', borderLeft: '2px solid #1CDEC8' }} />
+                      {/* TR */}
+                      <div className="absolute top-0 right-0 transition-all duration-200"
+                        style={{ width: liveResults[0]?.matched ? 10 : 16, height: liveResults[0]?.matched ? 10 : 16, borderTop: '2px solid #1CDEC8', borderRight: '2px solid #1CDEC8' }} />
+                      {/* BL */}
+                      <div className="absolute bottom-0 left-0 transition-all duration-200"
+                        style={{ width: liveResults[0]?.matched ? 10 : 16, height: liveResults[0]?.matched ? 10 : 16, borderBottom: '2px solid #1CDEC8', borderLeft: '2px solid #1CDEC8' }} />
+                      {/* BR */}
+                      <div className="absolute bottom-0 right-0 transition-all duration-200"
+                        style={{ width: liveResults[0]?.matched ? 10 : 16, height: liveResults[0]?.matched ? 10 : 16, borderBottom: '2px solid #1CDEC8', borderRight: '2px solid #1CDEC8' }} />
+                    </div>
+                  )}
 
                   {/* Recognition result overlay */}
                   {cameraOn && liveResults.length > 0 && (
                     <div className="absolute top-3 left-3 right-3 space-y-1">
                       {liveResults.map((r, i) => (
-                        <div key={i} className={`text-xs font-mono px-3 py-2 rounded-lg flex items-center gap-2 ${
-                          !r.matched ? 'bg-rose-900/85 text-rose-100'
-                            : r.conf >= MIN_CONFIDENCE ? 'bg-emerald-900/85 text-emerald-100'
-                            : 'bg-amber-900/85 text-amber-100'
-                        }`}>
+                        <div key={i} className="font-mono text-xs px-3 py-2 rounded-xl flex items-center gap-2"
+                          style={!r.matched
+                            ? { background: 'rgba(255,77,94,0.85)', color: '#FFE4E8', border: '1px solid rgba(255,77,94,0.5)' }
+                            : r.conf >= MIN_CONFIDENCE
+                              ? { background: 'rgba(28,222,200,0.15)', color: 'var(--ev-indigo)', border: '1px solid rgba(28,222,200,0.5)' }
+                              : { background: 'rgba(255,170,0,0.15)', color: 'var(--ev-amber)', border: '1px solid rgba(255,170,0,0.5)' }
+                          }>
                           {!r.matched ? '✗' : r.conf >= MIN_CONFIDENCE ? '✓' : '⚠'}
                           <span className="font-bold">{r.label}</span>
-                          {r.conf > 0 && <span className="ml-auto opacity-80">{r.conf}% confidence</span>}
+                          {r.conf > 0 && <span className="ml-auto opacity-80">{r.conf}% conf</span>}
                         </div>
                       ))}
                     </div>
@@ -398,8 +425,10 @@ export default function FacultyAttendancePage() {
 
                   {/* Multi-face overlay */}
                   {cameraOn && warning === 'multi-face' && (
-                    <div className="absolute inset-0 border-4 border-rose-500/60 rounded-xl pointer-events-none flex items-center justify-center">
-                      <div className="bg-rose-900/90 text-rose-100 text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-2">
+                    <div className="absolute inset-0 rounded-xl pointer-events-none flex items-center justify-center"
+                      style={{ border: '2px solid rgba(255,77,94,0.6)' }}>
+                      <div className="text-xs font-mono font-bold px-4 py-2 rounded-xl flex items-center gap-2"
+                        style={{ background: 'rgba(255,77,94,0.9)', color: '#fff' }}>
                         <AlertTriangle className="w-4 h-4" /> MULTIPLE FACES — PAUSED
                       </div>
                     </div>
@@ -407,23 +436,26 @@ export default function FacultyAttendancePage() {
 
                   {/* Bottom HUD */}
                   {cameraOn && (
-                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between bg-black/60 text-white text-[11px] font-mono px-3 py-1.5 rounded-lg border border-white/10">
+                    <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-[11px] font-mono px-3 py-1.5 rounded-xl"
+                      style={{ background: 'rgba(0,0,0,0.7)', border: '1px solid rgba(79,70,229,0.15)', color: '#E2E8F0' }}>
                       <span className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full live-indicator ${warning === 'multi-face' ? 'bg-rose-400' : 'bg-emerald-400'}`} />
+                        <span className={`w-2 h-2 rounded-full live-indicator`}
+                          style={{ background: warning === 'multi-face' ? '#FF4D5E' : '#1CDEC8' }} />
                         {warning === 'multi-face' ? 'PAUSED' : 'SCANNING'} · SsdMobilenetv1
                       </span>
-                      <span>{fps} fps · thr {MATCH_THRESHOLD} · {VOTES_REQUIRED}-vote</span>
+                      <span style={{ color: 'rgba(28,222,200,0.8)' }}>{fps} fps · thr {MATCH_THRESHOLD} · {VOTES_REQUIRED}-vote</span>
                     </div>
                   )}
 
                   {!cameraOn && (
                     <div className="text-center space-y-3 p-6">
-                      <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mx-auto">
-                        <Camera className="w-7 h-7 text-slate-400" />
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto"
+                        style={{ background: 'rgba(79,70,229,0.06)', border: '1px solid rgba(79,70,229,0.15)' }}>
+                        <Camera className="w-7 h-7" style={{ color: 'var(--ev-indigo)' }} />
                       </div>
                       <p className="text-sm font-semibold text-white">Camera Inactive</p>
-                      <p className="text-xs text-slate-400 max-w-xs mx-auto">
-                        {modelsReady ? 'Start camera. Students approach one at a time.' : modelLoading ? 'Loading AI models…' : 'Models unavailable.'}
+                      <p className="font-mono text-[11px] max-w-xs mx-auto" style={{ color: 'rgba(255,255,255,0.4)' }}>
+                        {modelsReady ? 'Start camera · Students approach one at a time' : modelLoading ? 'Loading AI models…' : 'Models unavailable'}
                       </p>
                     </div>
                   )}
@@ -432,33 +464,38 @@ export default function FacultyAttendancePage() {
                 <div className="pt-4 flex items-center justify-between">
                   {!cameraOn
                     ? <motion.button onClick={startCamera} disabled={!modelsReady} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-40">
+                        className="px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center gap-1.5 disabled:opacity-40"
+                        style={{ background: 'linear-gradient(135deg, #4F46E5, #6366F1)', boxShadow: '0 4px 14px rgba(28,222,200,0.3)' }}>
                         <Play className="w-3.5 h-3.5" /> Start Camera
                       </motion.button>
                     : <motion.button onClick={stopCamera} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs flex items-center gap-1.5">
+                        className="px-4 py-2 rounded-xl text-white font-semibold text-xs flex items-center gap-1.5"
+                        style={{ background: '#FF4D5E', boxShadow: '0 4px 14px rgba(255,77,94,0.3)' }}>
                         <Square className="w-3.5 h-3.5" /> Stop Camera
                       </motion.button>
                   }
-                  <span className="text-[11px] text-slate-500 font-mono">
+                  <span className="font-mono text-[10px]" style={{ color: modelLoading ? '#94A3B8' : modelsReady ? '#1CDEC8' : '#FF4D5E' }}>
                     {modelLoading ? 'Loading…' : modelsReady ? '✓ SsdMobilenetv1 ready' : '✗ Models failed'}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Roster — READ ONLY, no manual toggle */}
+            {/* Roster */}
             <div className="lg:col-span-5">
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-md flex flex-col" style={{ height: 500 }}>
+              <div className="rounded-2xl p-5 flex flex-col" style={{ background: '#fff', border: '1px solid rgba(79,70,229,0.15)', height: 520, boxShadow: '0 2px 12px rgba(28,222,200,0.06)' }}>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-600" /> {section} Roster
+                  <h3 className="font-display text-sm font-bold text-slate-900 flex items-center gap-2">
+                    <Users className="w-4 h-4" style={{ color: 'var(--ev-indigo)' }} /> {section} Roster
                   </h3>
-                  <Badge variant="indigo" size="sm">{students.length} Enrolled</Badge>
+                  <span className="font-mono text-[9px] font-bold px-2 py-0.5 rounded-lg"
+                    style={{ background: 'rgba(79,70,229,0.06)', color: 'var(--ev-indigo)', border: '1px solid rgba(79,70,229,0.15)' }}>
+                    {students.length} ENROLLED
+                  </span>
                 </div>
 
-                <p className="text-[10px] text-slate-400 mb-3 font-mono">
-                  Face recognition only · use Manual Attendance page for overrides
+                <p className="font-mono text-[9px] mb-3" style={{ color: 'rgba(28,222,200,0.6)', letterSpacing: '0.04em' }}>
+                  FACE RECOGNITION ONLY · USE MANUAL PAGE FOR OVERRIDES
                 </p>
 
                 {students.length === 0 && (
@@ -472,51 +509,57 @@ export default function FacultyAttendancePage() {
                     const isPresent    = s.status === 'present';
                     const isMatching   = liveResults[0]?.studentId === s._id && liveResults[0]?.matched;
                     const voteProgress = Math.min(s.voteCount / VOTES_REQUIRED, 1);
+                    // Build vote dot string: ■ filled, □ empty
+                    const voteDots = Array.from({ length: VOTES_REQUIRED }, (_, i) =>
+                      i < s.voteCount ? '■' : '□'
+                    ).join(' ');
 
                     return (
                       <motion.div key={s._id} layout
-                        className={`p-3 rounded-xl border transition-all ${
-                          isPresent   ? 'bg-emerald-50 border-emerald-200'
-                          : isMatching ? 'bg-indigo-50 border-indigo-300'
-                          : 'bg-slate-50 border-slate-200'
-                        }`}>
+                        className="p-3 rounded-xl border transition-all"
+                        style={isPresent
+                          ? { background: 'rgba(16,185,129,0.06)', borderColor: 'rgba(16,185,129,0.3)' }
+                          : isMatching
+                          ? { background: 'rgba(28,222,200,0.06)', borderColor: 'rgba(28,222,200,0.35)' }
+                          : { background: '#F9FAFB', borderColor: '#E2E8F0' }
+                        }>
                         <div className="flex items-center justify-between gap-2">
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-bold text-slate-900 truncate">{s.name}</span>
                               {isPresent && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-mono flex items-center gap-0.5">
+                                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded flex items-center gap-0.5"
+                                  style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--ev-emerald)', border: '1px solid rgba(16,185,129,0.3)' }}>
                                   <ShieldAlert className="w-2.5 h-2.5" /> Face {s.confidenceScore}%
                                 </span>
                               )}
                               {!s.faceEmbedding?.length && (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 border border-slate-200 font-mono">No face</span>
+                                <span className="font-mono text-[9px] px-1.5 py-0.5 rounded"
+                                  style={{ background: '#F1F5F9', color: '#94A3B8', border: '1px solid #E2E8F0' }}>No face</span>
                               )}
                             </div>
 
-                            {/* Vote progress bar — only shown while building up */}
+                            {/* Vote progress — monospace dots */}
                             {!isPresent && s.voteCount > 0 && (
                               <div className="mt-1.5 space-y-0.5">
-                                <div className="h-1 w-full bg-slate-200 rounded-full overflow-hidden">
-                                  <motion.div className="h-full bg-indigo-400 rounded-full"
-                                    animate={{ width: `${voteProgress * 100}%` }} transition={{ duration: 0.2 }} />
-                                </div>
-                                <p className="text-[9px] text-slate-400 font-mono">{s.voteCount}/{VOTES_REQUIRED} votes</p>
+                                <p className="font-mono text-[10px] tracking-wider" style={{ color: 'var(--ev-indigo)' }}>{voteDots} {s.voteCount}/{VOTES_REQUIRED}</p>
                               </div>
                             )}
                           </div>
 
-                          {/* Status badge — display only, not clickable */}
-                          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center gap-1 shrink-0 ${
-                            isPresent   ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                            : isMatching ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
-                            : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          }`}>
-                            {isPresent
-                              ? <><CheckCircle2 className="w-3 h-3" /> Present</>
+                          {/* Status badge */}
+                          <div className="px-2.5 py-1 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1 shrink-0"
+                            style={isPresent
+                              ? { background: 'rgba(16,185,129,0.08)', color: 'var(--ev-emerald)', border: '1px solid rgba(16,185,129,0.3)' }
                               : isMatching
-                              ? <><Camera className="w-3 h-3" /> Scanning…</>
-                              : <><XCircle className="w-3 h-3" /> Absent</>
+                              ? { background: 'rgba(79,70,229,0.06)', color: 'var(--ev-indigo)', border: '1px solid rgba(28,222,200,0.3)' }
+                              : { background: '#F1F5F9', color: '#94A3B8', border: '1px solid #E2E8F0' }
+                            }>
+                            {isPresent
+                              ? <><CheckCircle2 className="w-3 h-3" /> PRESENT</>
+                              : isMatching
+                              ? <><Camera className="w-3 h-3" /> SCAN…</>
+                              : <><XCircle className="w-3 h-3" /> ABSENT</>
                             }
                           </div>
                         </div>
@@ -525,12 +568,18 @@ export default function FacultyAttendancePage() {
                   })}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
-                  <span>Read-only · {VOTES_REQUIRED}-vote confirmation</span>
-                  <span className="font-mono text-indigo-600 font-semibold">{presentCount}/{students.length} confirmed</span>
+                <div className="pt-3 flex items-center justify-between font-mono text-[10px]"
+                  style={{ borderTop: '1px solid rgba(28,222,200,0.15)', color: 'rgba(28,222,200,0.5)' }}>
+                  <span>{VOTES_REQUIRED}-VOTE CONFIRMATION · READ-ONLY</span>
+                  <span className="font-bold" style={{ color: 'var(--ev-indigo)' }}>{presentCount}/{students.length} CONFIRMED</span>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Anomaly Flag List — below camera + roster */}
+          <div className="mt-6">
+            <AnomalyFlagList section={section} />
           </div>
         </main>
       </div>
