@@ -14,7 +14,7 @@ const translations = {
     myQuizzes: 'My Quizzes', notesResources: 'Notes & Resources', controlTower: 'Control Tower', accountApprovals: 'Account Approvals',
     menu: 'MENU', language: 'Language',
     home: 'Home', aiStudyCopilot: 'AI Study Copilot', progress: 'Progress',
-    achievements: 'Achievements', dailyTasks: 'Daily Tasks', academicCalendar: 'Academic Calendar', courses: 'Courses',
+    achievements: 'Achievements', dailyTasks: 'Daily Tasks', academicCalendar: 'Academic Calendar', courses: 'Courses', meetings: 'Meetings',
 
     // Topbar / page titles
     attendanceOverview: 'Attendance & Academic Overview',
@@ -99,7 +99,7 @@ const translations = {
     myQuizzes: 'నా క్విజ్లు', notesResources: 'నోట్స్ & వనరులు', controlTower: 'నియంత్రణ టవర్', accountApprovals: 'ఖాతా ఆమోదాలు',
     menu: 'మెనూ', language: 'భాష',
     home: 'హోమ్', aiStudyCopilot: 'AI అధ్యయన సహాయకుడు', progress: 'ప్రగతి', dailyTasks: 'రోజువారీ పనులు',
-    achievements: 'సాధనలు', academicCalendar: 'విద్యా క్యాలెండర్', courses: 'కోర్సులు',
+    achievements: 'సాధనలు', academicCalendar: 'విద్యా క్యాలెండర్', courses: 'కోర్సులు', meetings: 'మీటింగ్‌లు',
 
     attendanceOverview: 'హాజరు & విద్యా అవలోకనం',
     currentSemester: 'ప్రస్తుత సెమిస్టర్',
@@ -173,7 +173,7 @@ const translations = {
     myQuizzes: 'मेरी क्विज़', notesResources: 'नोट्स और संसाधन', controlTower: 'नियंत्रण टॉवर', accountApprovals: 'खाता अनुमोदन',
     menu: 'मेनू', language: 'भाषा',
     home: 'होम', aiStudyCopilot: 'AI अध्ययन सहायक', progress: 'प्रगति',
-    achievements: 'उपलब्धियाँ', dailyTasks: 'दैनिक कार्य', academicCalendar: 'शैक्षणिक कैलेंडर', courses: 'पाठ्यक्रम',
+    achievements: 'उपलब्धियाँ', dailyTasks: 'दैनिक कार्य', academicCalendar: 'शैक्षणिक कैलेंडर', courses: 'पाठ्यक्रम', meetings: 'मीटिंग',
 
     attendanceOverview: 'उपस्थिति और शैक्षणिक अवलोकन',
     currentSemester: 'वर्तमान सेमेस्टर',

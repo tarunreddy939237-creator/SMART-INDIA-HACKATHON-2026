@@ -18,6 +18,7 @@ const studentNav: { key: string; href: string; icon: any; section: string; tag?:
   { key: 'aiStudyCopilot', href: '/student/learning',    icon: Sparkles,   section: 'main', tag: 'AI' },
   { key: 'dailyTasks',    href: '/student/dashboard#daily-tasks', icon: Target, section: 'main' },
   { key: 'academicCalendar', href: '/student/calendar',  icon: Calendar,   section: 'main' },
+  { key: 'meetings',     href: '/student/meetings',  icon: Video,      section: 'main' },
   { key: 'quizzes',       href: '/student/quizzes',       icon: HelpCircle, section: 'main' },
   { key: 'videoLectures', href: '/student/videos',        icon: Video,      section: 'main' },
   { key: 'notesResources', href: '/student/dashboard',    icon: FileText,   section: 'main' },

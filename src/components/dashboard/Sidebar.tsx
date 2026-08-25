@@ -37,6 +37,7 @@ const facultyNav = [
   { key: 'createQuiz',        href: '/faculty/quizzes/create',    icon: PlusCircle,    group: 'Assess' },
   { key: 'videoLectures',     href: '/faculty/videos/upload',     icon: Video,         group: 'Content' },
   { key: 'notesResources',    href: '/faculty/notes',             icon: FileText,      group: 'Content' },
+  { key: 'meetings',           href: '/meet',                      icon: Video,         group: 'Engage', tag: 'Live' },
   { key: 'feedback',          href: '/faculty/feedback-review',   icon: MessageSquare, group: 'Engage' },
   { key: 'reportHistory',     href: '/faculty/report-history',     icon: Send,          group: 'Engage' },
   { key: 'help',              href: '/faculty/help',              icon: LifeBuoy,      group: 'Engage' },
@@ -45,6 +46,7 @@ const facultyNav = [
 const adminNav = [
   { key: 'controlTower',    href: '/admin/control-tower', icon: ShieldCheck, tag: 'Live' },
   { key: 'accountApprovals', href: '/admin/approvals',    icon: UserCheck },
+  { key: 'meetings',        href: '/admin/meetings',     icon: Video },
 ] as const;
 
 const LANGS: { code: Lang; label: string }[] = [
